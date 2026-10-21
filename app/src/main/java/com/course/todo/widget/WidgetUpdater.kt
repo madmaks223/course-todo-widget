@@ -48,7 +48,7 @@ object WidgetUpdater {
         val tasks = documentRows.filter { it.checked != null }
         val pendingTasks = visibleRows(documentRows, now, preferences.taskSortOrder).filter { it.checked != null }
         val urgentCount = pendingTasks.count { DeadlineRules.isUrgent(it, now) }
-        val fontScale = preferences.fontScalePercent.coerceIn(80, 160) / 100f
+        val fontScale = preferences.widgetFontScalePercent.coerceIn(80, 400) / 100f
         val narrow = manager.getAppWidgetOptions(appWidgetId)
             .getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250) < 220
         val views = RemoteViews(context.packageName, R.layout.widget_todo)
@@ -66,16 +66,16 @@ object WidgetUpdater {
             if (narrow) 13f else (if (preferences.widgetStyle == com.course.todo.ui.WidgetStyle.PAPER_TIMELINE) 15f else 14f) * fontScale,
         )
         views.setTextViewTextSize(
-            R.id.widget_count, TypedValue.COMPLEX_UNIT_SP, (11f * fontScale).coerceAtMost(14f),
+            R.id.widget_count, TypedValue.COMPLEX_UNIT_SP, (11f * fontScale).coerceAtMost(44f),
         )
         views.setTextViewTextSize(
-            R.id.widget_urgent_count, TypedValue.COMPLEX_UNIT_SP, (11f * fontScale).coerceAtMost(14f),
+            R.id.widget_urgent_count, TypedValue.COMPLEX_UNIT_SP, (11f * fontScale).coerceAtMost(44f),
         )
         views.setTextViewTextSize(
-            R.id.widget_status, TypedValue.COMPLEX_UNIT_SP, (11f * fontScale).coerceAtMost(14f),
+            R.id.widget_status, TypedValue.COMPLEX_UNIT_SP, (11f * fontScale).coerceAtMost(44f),
         )
         views.setTextViewTextSize(
-            R.id.widget_empty, TypedValue.COMPLEX_UNIT_SP, (13f * fontScale).coerceAtMost(18f),
+            R.id.widget_empty, TypedValue.COMPLEX_UNIT_SP, (13f * fontScale).coerceAtMost(52f),
         )
         views.setTextViewText(
             R.id.widget_count,

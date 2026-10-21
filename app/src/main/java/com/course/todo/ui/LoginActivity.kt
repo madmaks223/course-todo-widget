@@ -115,7 +115,7 @@ class LoginActivity : AppCompatActivity() {
         }, LinearLayout.LayoutParams(dp(48), dp(48)))
         header.addView(TextView(this).apply {
             text = "课程平台登录"
-            textSize = 18f * preferences.fontScalePercent / 100f
+            textSize = 18f * preferences.appFontScalePercent / 100f
             setTextColor(palette.text)
             maxLines = 2
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
@@ -210,7 +210,7 @@ class LoginActivity : AppCompatActivity() {
             sendCodeButton = TextView(this@LoginActivity).apply {
                 id = R.id.login_send_code
                 text = "获取验证码"
-                textSize = 13f * preferences.fontScalePercent / 100f
+                textSize = 13f * preferences.appFontScalePercent / 100f
                 setTextColor(palette.accent)
                 setPadding(dp(12), dp(12), dp(4), dp(12))
                 setOnClickListener { sendSmsCode() }
@@ -222,7 +222,7 @@ class LoginActivity : AppCompatActivity() {
         root.addView(smsGroup)
         statusText = TextView(this).apply {
             id = R.id.login_status
-            textSize = 13f * preferences.fontScalePercent / 100f
+            textSize = 13f * preferences.appFontScalePercent / 100f
             setTextColor(palette.secondary)
             setPadding(0, dp(12), 0, dp(4))
             visibility = View.GONE
@@ -231,7 +231,7 @@ class LoginActivity : AppCompatActivity() {
         submitButton = AppCompatButton(this).apply {
             id = R.id.login_submit
             text = "登 录"
-            textSize = 16f * preferences.fontScalePercent / 100f
+            textSize = 16f * preferences.appFontScalePercent / 100f
             isAllCaps = false
             setTextColor(0xFFFFFFFF.toInt())
             backgroundTintList = ColorStateList.valueOf(palette.accent)
@@ -246,7 +246,7 @@ class LoginActivity : AppCompatActivity() {
         )
         root.addView(TextView(this).apply {
             text = "遇到问题？使用网页登录"
-            textSize = 13f * preferences.fontScalePercent / 100f
+            textSize = 13f * preferences.appFontScalePercent / 100f
             setTextColor(palette.accent)
             gravity = Gravity.CENTER
             setPadding(0, dp(20), 0, dp(8))
@@ -256,7 +256,7 @@ class LoginActivity : AppCompatActivity() {
             text = "两种登录方式都走课程平台官方接口；密码与验证码只在本机 AES 加密后提交，不保存、不写日志。" +
                 "登录状态会保存在本机，重启 App 无需重新登录，除非退出登录或平台会话过期。" +
                 "登录成功后 Cookie 直接用于同步课程、作业、考试与任务点。"
-            textSize = 11.5f * preferences.fontScalePercent / 100f
+            textSize = 11.5f * preferences.appFontScalePercent / 100f
             setTextColor(palette.secondary)
             setPadding(0, dp(10), 0, 0)
             setLineSpacing(0f, 1.35f)
@@ -270,7 +270,7 @@ class LoginActivity : AppCompatActivity() {
         gravity = Gravity.CENTER
         addView(TextView(this@LoginActivity).apply {
             text = label
-            textSize = 14f * preferences.fontScalePercent / 100f
+            textSize = 14f * preferences.appFontScalePercent / 100f
             gravity = Gravity.CENTER
             setPadding(0, dp(10), 0, dp(10))
             setTextColor(if (nativeTab == tab) palette.accent else palette.secondary)
@@ -415,7 +415,7 @@ class LoginActivity : AppCompatActivity() {
         }
         webStatus = TextView(this).apply {
             id = R.id.login_page_status
-            textSize = 13f * preferences.fontScalePercent / 100f
+            textSize = 13f * preferences.appFontScalePercent / 100f
             setTextColor(palette.accent)
             setPadding(dp(8), dp(4), dp(8), dp(6))
             visibility = View.GONE
@@ -510,7 +510,7 @@ class LoginActivity : AppCompatActivity() {
         root.addView(actions)
         root.addView(TextView(this).apply {
             text = "返回账号密码登录"
-            textSize = 13f * preferences.fontScalePercent / 100f
+            textSize = 13f * preferences.appFontScalePercent / 100f
             setTextColor(palette.accent)
             gravity = Gravity.CENTER
             setPadding(0, dp(10), 0, dp(10))
@@ -586,7 +586,7 @@ class LoginActivity : AppCompatActivity() {
 
     private fun editText(hint: String): EditText = EditText(this).apply {
         this.hint = hint
-        textSize = 15f * preferences.fontScalePercent / 100f
+        textSize = 15f * preferences.appFontScalePercent / 100f
         setTextColor(palette.text)
         setHintTextColor(palette.secondary)
         setPadding(dp(12), dp(12), dp(12), dp(12))
@@ -601,7 +601,7 @@ class LoginActivity : AppCompatActivity() {
 
     private fun fieldLabel(text: String): TextView = TextView(this).apply {
         this.text = text
-        textSize = 13f * preferences.fontScalePercent / 100f
+        textSize = 13f * preferences.appFontScalePercent / 100f
         setTextColor(palette.secondary)
         setPadding(dp(2), dp(14), dp(2), dp(6))
     }

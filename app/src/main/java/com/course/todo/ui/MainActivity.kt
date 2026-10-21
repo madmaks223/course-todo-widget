@@ -89,7 +89,12 @@ class MainActivity : AppCompatActivity() {
     private var appearanceDirty = false
     private val renderPending = Runnable {
         renderPosted = false
-        if (isStarted && !isFinishing && !rendering) render()
+        if (!isStarted || isFinishing) return@Runnable
+        if (rendering) {
+            scheduleRender()
+        } else {
+            render()
+        }
     }
     private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key == null) return@OnSharedPreferenceChangeListener
@@ -138,6 +143,9 @@ class MainActivity : AppCompatActivity() {
         if (preferences.hasLoggedIn && preferences.demoMode) {
             preferences.demoMode = false
         }
+        intent.getIntExtra("debug_app_font", 0).takeIf { it in 80..400 }?.let {
+            preferences.appFontScalePercent = it
+        }
         if (preferences.demoMode && currentDocument().isNullOrBlank()) SyncScheduler.requestNow(this)
     }
 
@@ -168,6 +176,10 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        intent.getIntExtra("debug_app_font", 0).takeIf { it in 80..400 }?.let {
+            preferences.appFontScalePercent = it
+            render()
+        }
         if (intent.getBooleanExtra("show_settings", false)) {
             if (selectedTab != 1) findViewById<ScrollView>(R.id.main_content)?.scrollTo(0, 0)
             selectedTab = 1
@@ -717,39 +729,14 @@ class MainActivity : AppCompatActivity() {
                 WidgetUpdater.refreshAll(this@MainActivity)
             }
         }
-        val fontLabel = label("字体大小 ${preferences.fontScalePercent}%", 14f).apply {
-            id = R.id.font_scale_value
-            setPadding(0, dp(14), 0, 0)
+        addFontScaleSetting("App 字体大小", preferences.appFontScalePercent) { percent ->
+            preferences.appFontScalePercent = percent
+            render()
         }
-        addView(fontLabel)
-        val fontRow = row().apply { gravity = Gravity.CENTER_VERTICAL }
-        fontRow.addView(SeekBar(this@MainActivity).apply {
-            id = R.id.font_seekbar
-            max = 16
-            progress = (preferences.fontScalePercent - 80) / 5
-            progressTintList = ColorStateList.valueOf(palette.accent)
-            thumbTintList = ColorStateList.valueOf(palette.accent)
-            contentDescription = "字体大小"
-            minimumHeight = dp(48)
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                    fontLabel.text = "字体大小 ${80 + progress * 5}%"
-                }
-                override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
-                override fun onStopTrackingTouch(seekBar: SeekBar?) {
-                    preferences.fontScalePercent = 80 + (seekBar?.progress ?: 4) * 5
-                    WidgetUpdater.refreshAll(this@MainActivity)
-                }
-            })
-        }, LinearLayout.LayoutParams(0, dp(52), 1f))
-        fontRow.addView(iconButton(android.R.drawable.ic_menu_revert, "重置字体大小").apply {
-            id = R.id.font_reset_button
-            setOnClickListener {
-                preferences.fontScalePercent = 100
-                WidgetUpdater.refreshAll(this@MainActivity)
-            }
-        })
-        addView(fontRow)
+        addFontScaleSetting("桌面小组件字体大小", preferences.widgetFontScalePercent) { percent ->
+            preferences.widgetFontScalePercent = percent
+            WidgetUpdater.refreshAll(this@MainActivity)
+        }
         addView(CheckBox(this@MainActivity).apply {
             id = R.id.hide_completed_checkbox
             text = "App 中隐藏已完成"
@@ -826,6 +813,43 @@ class MainActivity : AppCompatActivity() {
             .setView(scroll)
             .setPositiveButton("知道了", null)
             .show()
+    }
+
+    private fun LinearLayout.addFontScaleSetting(title: String, currentPercent: Int, onChange: (Int) -> Unit) {
+        val valueLabel = label("$title $currentPercent%", 14f).apply {
+            setPadding(0, dp(14), 0, 0)
+        }
+        addView(valueLabel)
+        val fontRow = row().apply { gravity = Gravity.CENTER_VERTICAL }
+        val seekBar = SeekBar(this@MainActivity).apply {
+            max = (400 - 80) / 10
+            progress = (currentPercent - 80) / 10
+            progressTintList = ColorStateList.valueOf(palette.accent)
+            thumbTintList = ColorStateList.valueOf(palette.accent)
+            contentDescription = title
+            minimumHeight = dp(48)
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    valueLabel.text = "$title ${80 + progress * 10}%"
+                }
+                override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                    val percent = (80 + (seekBar?.progress ?: 4) * 10).coerceIn(80, 400)
+                    valueLabel.text = "$title $percent%"
+                    onChange(percent)
+                }
+            })
+        }
+        fontRow.addView(seekBar, LinearLayout.LayoutParams(0, dp(52), 1f))
+        fontRow.addView(iconButton(android.R.drawable.ic_menu_revert, "重置$title").apply {
+            setOnClickListener {
+                val percent = 100
+                valueLabel.text = "$title 100%"
+                seekBar.progress = (percent - 80) / 10
+                onChange(percent)
+            }
+        })
+        addView(fontRow)
     }
 
     private fun LinearLayout.addOptionGroup(
@@ -1025,7 +1049,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun column() = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
     private fun row() = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-    private fun scaled(size: Float) = size * preferences.fontScalePercent / 100f
+    private fun scaled(size: Float) = size * preferences.appFontScalePercent / 100f
     private fun dp(value: Int) = (resources.displayMetrics.density * value).toInt()
     private fun toast(message: String) { if (!isFinishing) Toast.makeText(this, message, Toast.LENGTH_LONG).show() }
 
@@ -1035,7 +1059,6 @@ class MainActivity : AppCompatActivity() {
         private const val RENDER_DEBOUNCE_MILLIS = 60L
         private val RENDER_KEYS = setOf(
             "demo_mode", "has_logged_in", "last_account",
-            "font_scale_percent",
             "sync_status", "sync_message", "last_success", "source_generation",
         )
         private val DOCUMENT_KEYS = setOf("sync_status", "sync_message", "last_success", "source_generation")

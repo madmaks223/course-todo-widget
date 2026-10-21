@@ -57,7 +57,7 @@ class TodoWidgetService : RemoteViewsService() {
             val alertColors = DeadlineAlertPalette.resolve(palette.background, style)
             val dark = Color.luminance(palette.background) < 0.5f
             val showTimeline = palette.showTimeline || style == DeadlineAlertStyle.TIMELINE
-            val fontScale = preferences.fontScalePercent.coerceIn(80, 160) / 100f
+            val fontScale = preferences.widgetFontScalePercent.coerceIn(80, 400) / 100f
             val layout = if (row.isHeading) R.layout.widget_heading else R.layout.widget_row
             val views = RemoteViews(context.packageName, layout)
             if (row.isHeading) {
@@ -67,7 +67,7 @@ class TodoWidgetService : RemoteViewsService() {
                 views.setInt(R.id.widget_heading_marker, "setColorFilter", palette.accent)
                 views.setTextViewTextSize(
                     R.id.widget_heading_text, TypedValue.COMPLEX_UNIT_SP,
-                    ((if (showTimeline) 13f else 12f) * fontScale).coerceAtMost(18f),
+                    ((if (showTimeline) 13f else 12f) * fontScale).coerceAtMost(52f),
                 )
                 views.setOnClickFillInIntent(R.id.widget_heading_root, Intent())
                 return views
@@ -131,7 +131,7 @@ class TodoWidgetService : RemoteViewsService() {
             views.setTextColor(R.id.widget_row_detail, if (urgent) alertColors.color else palette.secondary)
             views.setTextViewTextSize(
                 R.id.widget_row_detail, TypedValue.COMPLEX_UNIT_SP,
-                (11f * fontScale).coerceAtMost(16f),
+                (11f * fontScale).coerceAtMost(44f),
             )
             views.setViewVisibility(R.id.widget_row_detail, if (row.detail.isNullOrBlank()) View.GONE else View.VISIBLE)
 
@@ -140,7 +140,7 @@ class TodoWidgetService : RemoteViewsService() {
             views.setTextColor(R.id.widget_row_alert_label, alertColors.color)
             views.setTextViewTextSize(
                 R.id.widget_row_alert_label, TypedValue.COMPLEX_UNIT_SP,
-                (11f * fontScale).coerceAtMost(16f),
+                (11f * fontScale).coerceAtMost(44f),
             )
             views.setViewVisibility(
                 R.id.widget_row_alert_label,
@@ -158,7 +158,7 @@ class TodoWidgetService : RemoteViewsService() {
                 )
                 views.setTextViewTextSize(
                     R.id.widget_row_capsule, TypedValue.COMPLEX_UNIT_SP,
-                    (10.5f * fontScale).coerceAtMost(15f),
+                    (10.5f * fontScale).coerceAtMost(42f),
                 )
                 views.setViewVisibility(R.id.widget_row_capsule, View.VISIBLE)
                 views.setContentDescription(R.id.widget_row_capsule, "剩余时间 $remaining%")
