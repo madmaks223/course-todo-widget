@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_row_root"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:gravity="top"
+    android:minHeight="42dp"
+    android:paddingTop="4dp"
+    android:paddingBottom="4dp">
+
+    <ImageView
+        android:id="@+id/widget_row_alert_background"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:importantForAccessibility="no"
+        android:scaleType="fitXY"
+        android:src="@drawable/widget_deadline_card_light"
+        android:visibility="gone" />
+
+    <ImageView
+        android:id="@+id/widget_row_timeline_line"
+        android:layout_width="1dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="9dp"
+        android:importantForAccessibility="no"
+        android:src="@drawable/widget_timeline_line"
+        android:visibility="gone" />
+
+    <ImageView
+        android:id="@+id/widget_row_timeline_dot"
+        android:layout_width="11dp"
+        android:layout_height="11dp"
+        android:layout_marginStart="4dp"
+        android:layout_marginTop="17dp"
+        android:importantForAccessibility="no"
+        android:src="@drawable/widget_timeline_dot"
+        android:visibility="gone" />
+
+    <LinearLayout
+        android:id="@+id/widget_row_content"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:baselineAligned="false"
+        android:gravity="top"
+        android:orientation="horizontal"
+        android:paddingStart="6dp"
+        android:paddingTop="7dp"
+        android:paddingEnd="6dp"
+        android:paddingBottom="7dp">
+
+        <ImageView
+            android:id="@+id/widget_row_check"
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginTop="2dp"
+            android:layout_marginEnd="7dp"
+            android:contentDescription="待完成"
+            android:src="@drawable/ic_circle" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/widget_row_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:breakStrategy="simple"
+                android:textColor="#202526"
+                android:textSize="14sp" />
+
+            <TextView
+                android:id="@+id/widget_row_detail"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:breakStrategy="simple"
+                android:paddingTop="3dp"
+                android:textColor="#687372"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/widget_row_alert_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:breakStrategy="simple"
+                android:paddingTop="3dp"
+                android:text="@string/deadline_alert_soon"
+                android:textColor="#BA1A1A"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <ProgressBar
+                android:id="@+id/widget_row_progress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="3dp"
+                android:layout_marginTop="5dp"
+                android:max="100"
+                android:progress="0"
+                android:progressDrawable="@drawable/widget_progress_light"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/widget_row_capsule"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:layout_marginTop="2dp"
+            android:background="@drawable/widget_capsule_light"
+            android:paddingStart="8dp"
+            android:paddingTop="3dp"
+            android:paddingEnd="8dp"
+            android:paddingBottom="3dp"
+            android:textColor="#93000A"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+    </LinearLayout>
+</FrameLayout>

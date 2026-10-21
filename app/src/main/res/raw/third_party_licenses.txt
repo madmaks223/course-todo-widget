@@ -1,0 +1,16 @@
+课程待办 · 开源许可
+
+本应用使用了以下开源组件，感谢它们的作者与社区：
+
+AndroidX Core (core-ktx) — Apache License 2.0
+AndroidX AppCompat — Apache License 2.0
+Material Components for Android — Apache License 2.0
+AndroidX WorkManager — Apache License 2.0
+Kotlin Standard Library — Apache License 2.0
+jsoup: Java HTML Parser — MIT License
+
+Apache License 2.0: https://www.apache.org/licenses/LICENSE-2.0
+MIT License: https://opensource.org/license/mit
+
+本应用为个人开发的开源项目，与任何课程平台官方均无关联。
+完整许可文本：https://github.com/madmaks223/course-todo-widget/blob/main/THIRD_PARTY_LICENSES.md

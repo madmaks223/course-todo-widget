@@ -1,0 +1,27 @@
+# Gradle / Kotlin / Android build
+.gradle/
+.kotlin/
+**/build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# 本机 SDK 路径，不提交
+local.properties
+
+# 签名文件
+*.jks
+*.keystore
+
+# IDE
+.idea/
+*.iml
+
+# OS
+.DS_Store
+
+# 本地构建产物 / APK / 真机截图（可能含个人任务数据）
+artifacts/
+
+# 真实课程平台页面快照（含本人课程、作业、成绩等隐私，仅用于本地回归测试）
+app/src/test/resources/fixtures/
