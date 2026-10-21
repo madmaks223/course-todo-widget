@@ -49,6 +49,7 @@ import com.course.todo.core.TodoOrdering
 import com.course.todo.storage.AppPreferences
 import com.course.todo.storage.MarkdownStore
 import com.course.todo.data.PlatformLoginService
+import com.course.todo.data.PlatformSession
 import com.course.todo.storage.SyncStatus
 import com.course.todo.sync.SyncScheduler
 import com.course.todo.sync.RealtimeSyncService
@@ -530,10 +531,27 @@ class MainActivity : AppCompatActivity() {
         if (!preferences.demoMode) {
             val state = preferences.readSyncState()
             val isLiveDocument = markdown.read()?.lineSequence()?.firstOrNull()?.let { !it.contains("演示") } == true
-            addView(label(if (state.status == SyncStatus.SUCCESS && isLiveDocument) "最近一次同步已验证登录" else "登录状态待验证", 12f).apply {
-                setTextColor(palette.secondary)
-                setPadding(0, dp(6), 0, dp(8))
+            val sessionSaved = PlatformSession(this@MainActivity).hasSession()
+            val account = preferences.lastAccount
+            val loginState = when {
+                !sessionSaved -> "登录状态：未登录"
+                account.isNotBlank() -> "登录状态：已登录 · $account"
+                else -> "登录状态：已登录"
+            }
+            addView(label(loginState, 12f).apply {
+                setTextColor(if (sessionSaved) palette.accent else palette.secondary)
+                setPadding(0, dp(6), 0, 0)
             })
+            addView(label(if (sessionSaved) "登录会话保存在本机，重启 App 无需重新登录" else "登录会话仅保存在本机，不保存密码", 12f).apply {
+                setTextColor(palette.secondary)
+                setPadding(0, 0, 0, dp(8))
+            })
+            if (sessionSaved && !(state.status == SyncStatus.SUCCESS && isLiveDocument)) {
+                addView(label("最近一次同步待验证，可尝试重新同步", 12f).apply {
+                    setTextColor(palette.secondary)
+                    setPadding(0, 0, 0, dp(8))
+                })
+            }
             addView(commandButton("登录课程平台（账号密码 / 验证码）", R.id.login_button) {
                 startActivity(Intent(this@MainActivity, LoginActivity::class.java))
             })

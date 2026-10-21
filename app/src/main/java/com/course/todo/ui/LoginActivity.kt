@@ -254,6 +254,7 @@ class LoginActivity : AppCompatActivity() {
         })
         root.addView(TextView(this).apply {
             text = "两种登录方式都走课程平台官方接口；密码与验证码只在本机 AES 加密后提交，不保存、不写日志。" +
+                "登录状态会保存在本机，重启 App 无需重新登录，除非退出登录或平台会话过期。" +
                 "登录成功后 Cookie 直接用于同步课程、作业、考试与任务点。"
             textSize = 11.5f * preferences.fontScalePercent / 100f
             setTextColor(palette.secondary)
@@ -387,12 +388,21 @@ class LoginActivity : AppCompatActivity() {
 
     private fun onLoginSucceeded(message: String) {
         showNativeStatus(message, error = false)
+        rememberLoginAccount(accountInput.text.toString().trim())
         preferences.demoMode = false
         preferences.realtimeSyncEnabled = true
         preferences.invalidateSession()
         SyncScheduler.schedule(this)
         SyncScheduler.requestNow(this)
         mainHandler.postDelayed({ finish() }, 350)
+    }
+
+    /** 记录脱敏后的账号，用于设置页显示“已登录”；不保存密码。 */
+    private fun rememberLoginAccount(raw: String) {
+        if (raw.isBlank()) return
+        val masked = if (raw.length >= 8) raw.take(3) + "****" + raw.takeLast(4) else "已登录账号"
+        preferences.lastAccount = masked
+        preferences.lastLoginAt = System.currentTimeMillis()
     }
 
     // ------------------------------------------------------------------ 网页登录兜底
@@ -547,6 +557,7 @@ class LoginActivity : AppCompatActivity() {
                     if (closeOnSuccess) {
                         preferences.demoMode = false
                         preferences.realtimeSyncEnabled = true
+                        rememberLoginAccount(accountInput.text.toString().trim())
                         preferences.invalidateSession()
                         SyncScheduler.schedule(this@LoginActivity)
                         SyncScheduler.requestNow(this@LoginActivity)

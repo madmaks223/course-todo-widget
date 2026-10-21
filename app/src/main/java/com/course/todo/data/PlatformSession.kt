@@ -1,7 +1,9 @@
 package com.course.todo.data
 
 import android.content.Context
+import android.util.AtomicFile
 import android.webkit.CookieManager
+import java.io.File
 import org.json.JSONObject
 
 /**
@@ -15,8 +17,11 @@ import org.json.JSONObject
  * - 旧版本（只存 name → value）会自动迁移。
  */
 class PlatformSession(context: Context) {
-    private val prefs = context.applicationContext
-        .getSharedPreferences("platform_session", Context.MODE_PRIVATE)
+    private val appContext = context.applicationContext
+    private val prefs = appContext.getSharedPreferences("platform_session", Context.MODE_PRIVATE)
+
+    /** 登录状态同时存一份本地文件，进程重启/SharedPreferences 异常时可恢复。 */
+    private val stateFile = File(appContext.filesDir, "login_state.json")
 
     private data class Entry(
         val name: String,
@@ -120,12 +125,18 @@ class PlatformSession(context: Context) {
 
     fun clear() {
         prefs.edit().remove(KEY_JAR).apply()
+        runCatching { stateFile.delete() }
         runCatching { CookieManager.getInstance().removeAllCookies(null) }
         runCatching { CookieManager.getInstance().flush() }
     }
 
     private fun readEntries(): Map<String, Entry> {
-        val raw = prefs.getString(KEY_JAR, null) ?: return emptyMap()
+        var raw = prefs.getString(KEY_JAR, null)
+        if (raw.isNullOrBlank()) {
+            raw = readBackup()
+            if (!raw.isNullOrBlank()) prefs.edit().putString(KEY_JAR, raw).apply()
+        }
+        if (raw.isNullOrBlank()) return emptyMap()
         return runCatching {
             val json = JSONObject(raw)
             val entries = mutableMapOf<String, Entry>()
@@ -169,6 +180,23 @@ class PlatformSession(context: Context) {
             )
         }
         prefs.edit().putString(KEY_JAR, json.toString()).apply()
+        runCatching { writeBackup(json.toString()) }
+    }
+
+    private fun readBackup(): String? = runCatching {
+        if (stateFile.exists()) stateFile.readText().takeIf { it.isNotBlank() } else null
+    }.getOrNull()
+
+    private fun writeBackup(content: String) {
+        val file = AtomicFile(stateFile)
+        val stream = file.startWrite()
+        try {
+            stream.write(content.toByteArray(Charsets.UTF_8))
+            file.finishWrite(stream)
+        } catch (error: Exception) {
+            file.failWrite(stream)
+            throw error
+        }
     }
 
     private companion object {

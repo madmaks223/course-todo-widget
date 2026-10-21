@@ -29,6 +29,16 @@ class AppPreferences(context: Context) {
             }
         }
     val sourceGeneration: Long get() = prefs.getLong("source_generation", 0)
+    /** 最近一次登录的账号（脱敏），只用于设置页展示登录状态。 */
+    var lastAccount: String
+        get() = prefs.getString("last_account", "").orEmpty()
+        set(value) = prefs.edit().putString("last_account", value).apply()
+
+    /** 最近一次登录时间（毫秒）。 */
+    var lastLoginAt: Long
+        get() = prefs.getLong("last_login_at", 0L)
+        set(value) = prefs.edit().putLong("last_login_at", value).apply()
+
 
     fun invalidateSession() = synchronized(sourceLock) {
         prefs.edit().putLong("source_generation", sourceGeneration + 1).apply()

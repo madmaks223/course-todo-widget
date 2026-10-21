@@ -2,6 +2,12 @@
 
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## 0.5.1（2026-10-21）
+
+- 登录状态双份保存在本地（`SharedPreferences` + `files/login_state.json`），进程重启或首选项读取异常时可恢复。
+- 设置页显示登录状态与脱敏账号；登录页说明会话只保存在本机、重启无需重新登录。
+- 退出登录时同时清除本地会话文件。
+
 ## 0.5.0（2026-10-21）
 
 - 新增分组任务(PBL)数据源，纳入待办与 Markdown。
