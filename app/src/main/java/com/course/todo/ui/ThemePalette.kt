@@ -55,14 +55,17 @@ object ThemePalette {
         Palette(Color.parseColor(background), Color.parseColor(surface), Color.parseColor(text),
             Color.parseColor(secondary), Color.parseColor(accent), Color.parseColor(border))
 
-    fun resolveWidget(context: Context, theme: ThemeStyle, style: WidgetStyle): WidgetPalette {
-        val base = resolve(context, theme)
+    /** 小组件配色只由美化方案决定（深色跟随系统），不受 App 主题影响。 */
+    fun resolveWidget(context: Context, style: WidgetStyle): WidgetPalette {
+        val systemDark = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+            Configuration.UI_MODE_NIGHT_YES
+        val base = resolve(context, if (systemDark) ThemeStyle.DARK else ThemeStyle.LIGHT)
         return when (style) {
             WidgetStyle.MATERIAL_CLEAR -> WidgetPalette(
                 base.background, base.surface, base.text, base.secondary, base.accent, base.border,
                 false,
             )
-            WidgetStyle.NOTION_FOCUS -> if (isDark(base)) WidgetPalette(
+            WidgetStyle.NOTION_FOCUS -> if (systemDark) WidgetPalette(
                 Color.parseColor("#20211F"), Color.parseColor("#292A27"), Color.parseColor("#ECEBE6"),
                 Color.parseColor("#AAA89F"), Color.parseColor("#D87967"), Color.parseColor("#3D3E39"),
                 false,
@@ -72,8 +75,7 @@ object ThemePalette {
                 false,
             )
             WidgetStyle.PAPER_TIMELINE -> {
-                val dark = isDark(base)
-                if (dark) WidgetPalette(
+                if (systemDark) WidgetPalette(
                     Color.parseColor("#28231F"), Color.parseColor("#312B25"), Color.parseColor("#F5EBDD"),
                     Color.parseColor("#C2AA94"), Color.parseColor("#E29A68"), Color.parseColor("#5A493B"),
                     true,

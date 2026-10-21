@@ -37,7 +37,7 @@ object WidgetUpdater {
     fun refresh(context: Context, appWidgetId: Int) {
         val manager = AppWidgetManager.getInstance(context)
         val preferences = AppPreferences(context)
-        val palette = ThemePalette.resolveWidget(context, preferences.theme, preferences.widgetStyle)
+        val palette = ThemePalette.resolveWidget(context, preferences.widgetStyle)
         val alertColors = DeadlineAlertPalette.resolve(palette.background, preferences.deadlineAlertStyle)
         val markdown = MarkdownStore(context).read()
         val documentRows = markdown?.let(MarkdownDocument::parse).orEmpty()

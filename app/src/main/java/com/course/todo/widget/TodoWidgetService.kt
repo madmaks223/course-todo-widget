@@ -52,7 +52,7 @@ class TodoWidgetService : RemoteViewsService() {
 
         override fun getViewAt(position: Int): RemoteViews? {
             val row = rows.getOrNull(position) ?: return null
-            val palette = ThemePalette.resolveWidget(context, preferences.theme, preferences.widgetStyle)
+            val palette = ThemePalette.resolveWidget(context, preferences.widgetStyle)
             val style = preferences.deadlineAlertStyle
             val alertColors = DeadlineAlertPalette.resolve(palette.background, style)
             val dark = Color.luminance(palette.background) < 0.5f

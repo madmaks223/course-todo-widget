@@ -82,8 +82,19 @@ class MainActivity : AppCompatActivity() {
     }
     private var isStarted = false
     private val fileExecutor = Executors.newSingleThreadExecutor()
-    private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
-        runOnUiThread { if (!isFinishing && !rendering) render() }
+    private var cachedDocument: String? = null
+    private var cachedDocumentAt = 0L
+    private var renderPosted = false
+    private val renderPending = Runnable {
+        renderPosted = false
+        if (isStarted && !isFinishing && !rendering) render()
+    }
+    private val preferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == null) return@OnSharedPreferenceChangeListener
+        runOnUiThread {
+            if (key in DOCUMENT_KEYS) cachedDocument = null
+            if (key in RENDER_KEYS) scheduleRender()
+        }
     }
 
     private val exportDocument = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -125,7 +136,7 @@ class MainActivity : AppCompatActivity() {
         if (preferences.hasLoggedIn && preferences.demoMode) {
             preferences.demoMode = false
         }
-        if (preferences.demoMode && markdown.read().isNullOrBlank()) SyncScheduler.requestNow(this)
+        if (preferences.demoMode && currentDocument().isNullOrBlank()) SyncScheduler.requestNow(this)
     }
 
     override fun onStart() {
@@ -177,6 +188,24 @@ class MainActivity : AppCompatActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putInt("selectedTab", selectedTab)
         super.onSaveInstanceState(outState)
+    }
+
+    /** 短缓存当前 Markdown，避免每次重绘都读文件造成卡顿。 */
+    private fun currentDocument(): String {
+        val cached = cachedDocument
+        val nowMs = System.currentTimeMillis()
+        if (cached == null || nowMs - cachedDocumentAt > DOCUMENT_CACHE_MILLIS) {
+            cachedDocument = markdown.read().orEmpty()
+            cachedDocumentAt = nowMs
+        }
+        return cachedDocument.orEmpty()
+    }
+
+    /** 合并连续的重绘请求，避免切换选项时整页重建多次。 */
+    private fun scheduleRender() {
+        if (renderPosted || isFinishing || !isStarted) return
+        renderPosted = true
+        mainHandler.postDelayed(renderPending, RENDER_DEBOUNCE_MILLIS)
     }
 
     private fun render() {
@@ -290,7 +319,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun taskSection(): View {
-        val document = markdown.read().orEmpty()
+        val document = currentDocument()
         val now = Instant.now()
         val rows = DeadlineRules.filterVisible(
             MarkdownDocument.parse(document), now, hideCompleted = preferences.hideCompleted,
@@ -300,8 +329,7 @@ class MainActivity : AppCompatActivity() {
         val displayRows = TodoOrdering.build(rows, preferences.taskSortOrder)
         val urgentCount = displayRows.filterIsInstance<TodoOrdering.DisplayRow.Task>()
             .count { DeadlineRules.isUrgent(it.row, now) }
-        val showTimeline = preferences.widgetStyle == WidgetStyle.PAPER_TIMELINE ||
-            alertStyle == DeadlineAlertStyle.TIMELINE
+        val showTimeline = alertStyle == DeadlineAlertStyle.TIMELINE
         val taskPointRows = rows.filter { it.isTaskPoint }
         val sessionAvailable = PlatformSession(this@MainActivity).hasSession()
         return column().apply {
@@ -559,7 +587,7 @@ class MainActivity : AppCompatActivity() {
         }
         if (!preferences.demoMode) {
             val state = preferences.readSyncState()
-            val isLiveDocument = markdown.read()?.lineSequence()?.firstOrNull()?.let { !it.contains("演示") } == true
+            val isLiveDocument = currentDocument().lineSequence().firstOrNull()?.let { !it.contains("演示") } == true
             val sessionSaved = PlatformSession(this@MainActivity).hasSession()
             val account = preferences.lastAccount
             val loginState = when {
@@ -589,19 +617,8 @@ class MainActivity : AppCompatActivity() {
                     Intent(this@MainActivity, LoginActivity::class.java).putExtra(LoginActivity.EXTRA_WEB_MODE, true),
                 )
             })
-            addView(commandButton("退出登录", R.id.logout_button) {
-                disableRealtimeSync()
-                PlatformLoginService(this@MainActivity).logout()
-                preferences.invalidateSession()
-                CookieManager.getInstance().removeAllCookies {
-                    preferences.invalidateSession()
-                    CookieManager.getInstance().flush()
-                    WebStorage.getInstance().deleteAllData()
-                    SyncScheduler.requestNow(this@MainActivity)
-                    toast("已退出登录")
-                }
-            })
         }
+
         addView(SwitchCompat(this@MainActivity).apply {
             id = R.id.auto_sync_switch
             text = "后台自动同步（约每 15 分钟）"
@@ -644,148 +661,47 @@ class MainActivity : AppCompatActivity() {
         }
         addView(divider())
         addView(sectionTitle("外观"))
-        addView(label("主题", 14f).apply { setTextColor(palette.secondary) })
-        val themeNames = listOf("跟随系统", "浅色", "深色", "薄荷", "纸张")
-        addView(Spinner(this@MainActivity).apply {
-            id = R.id.theme_spinner
-            minimumHeight = dp(52)
-            backgroundTintList = ColorStateList.valueOf(palette.accent)
-            adapter = object : ArrayAdapter<String>(this@MainActivity, android.R.layout.simple_spinner_item, themeNames) {
-                override fun getView(position: Int, convertView: View?, parent: ViewGroup): View =
-                    (super.getView(position, convertView, parent) as TextView).apply {
-                        setTextColor(palette.text)
-                        textSize = scaled(15f)
-                        setPadding(dp(8), dp(12), dp(8), dp(12))
-                    }
-                override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View =
-                    (super.getDropDownView(position, convertView, parent) as TextView).apply {
-                        setBackgroundColor(palette.surface)
-                        setTextColor(palette.text)
-                        textSize = scaled(15f)
-                        setPadding(dp(16), dp(14), dp(16), dp(14))
-                    }
-            }.also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-            setSelection(preferences.theme.ordinal)
-            onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    val theme = ThemeStyle.entries[position]
-                    if (preferences.theme != theme) {
-                        preferences.theme = theme
-                        WidgetUpdater.refreshAll(this@MainActivity)
-                    }
-                }
-                override fun onNothingSelected(parent: android.widget.AdapterView<*>?) = Unit
+        addOptionGroup("主题", listOf("跟随系统", "浅色", "深色", "薄荷", "纸张"), preferences.theme.ordinal, 3) { index ->
+            val theme = ThemeStyle.entries.getOrNull(index) ?: ThemeStyle.SYSTEM
+            if (preferences.theme != theme) {
+                // 只改变 App 配色，不刷新桌面小组件。
+                preferences.theme = theme
             }
-        })
-        addView(label("截止警示方案", 14f).apply {
+        }
+        addOptionGroup("截止警示方案", listOf("柔和", "红边卡片", "时间线", "进度条"), preferences.deadlineAlertStyle.ordinal, 2) { index ->
+            val style = DeadlineAlertStyle.entries.getOrNull(index) ?: DeadlineAlertStyle.SOFT
+            if (preferences.deadlineAlertStyle != style) {
+                preferences.deadlineAlertStyle = style
+                WidgetUpdater.refreshAll(this@MainActivity)
+            }
+        }
+        addView(label("效果预览", 12f).apply {
             setTextColor(palette.secondary)
-            setPadding(0, dp(16), 0, 0)
+            setPadding(0, dp(6), 0, dp(2))
         })
-        val alertStyleNames = listOf("柔和警示", "红边卡片 · 倒计时胶囊", "时间线警戒", "整行浅红 · 时间进度条")
-        addView(Spinner(this@MainActivity).apply {
-            id = R.id.deadline_alert_spinner
-            minimumHeight = dp(52)
-            backgroundTintList = ColorStateList.valueOf(palette.accent)
-            adapter = object : ArrayAdapter<String>(this@MainActivity, android.R.layout.simple_spinner_item, alertStyleNames) {
-                override fun getView(position: Int, convertView: View?, parent: ViewGroup): View =
-                    (super.getView(position, convertView, parent) as TextView).apply {
-                        setTextColor(palette.text)
-                        textSize = scaled(15f)
-                        setPadding(dp(8), dp(12), dp(8), dp(12))
-                    }
-                override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View =
-                    (super.getDropDownView(position, convertView, parent) as TextView).apply {
-                        setBackgroundColor(palette.surface)
-                        setTextColor(palette.text)
-                        textSize = scaled(15f)
-                        setPadding(dp(16), dp(14), dp(16), dp(14))
-                    }
-            }.also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-            setSelection(preferences.deadlineAlertStyle.ordinal)
-            onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    val style = DeadlineAlertStyle.entries.getOrNull(position) ?: DeadlineAlertStyle.SOFT
-                    if (preferences.deadlineAlertStyle != style) {
-                        preferences.deadlineAlertStyle = style
-                        WidgetUpdater.refreshAll(this@MainActivity)
-                    }
-                }
-                override fun onNothingSelected(parent: android.widget.AdapterView<*>?) = Unit
+        addView(taskRowView(
+            previewRow(),
+            Instant.now(),
+            preferences.deadlineAlertStyle,
+            DeadlineAlertPalette.resolve(palette.background, preferences.deadlineAlertStyle),
+            preferences.deadlineAlertStyle == DeadlineAlertStyle.TIMELINE,
+        ))
+        addView(divider())
+        addOptionGroup("任务排序", listOf("按课程排序", "按截止日期（近的在上）"), preferences.taskSortOrder.ordinal, 2) { index ->
+            val order = TaskSortOrder.entries.getOrNull(index) ?: TaskSortOrder.COURSE
+            if (preferences.taskSortOrder != order) {
+                preferences.taskSortOrder = order
+                WidgetUpdater.refreshAll(this@MainActivity)
             }
-        })
-        addView(label("任务排序", 14f).apply {
-            setTextColor(palette.secondary)
-            setPadding(0, dp(16), 0, 0)
-        })
-        val sortOrderNames = listOf("按课程排序", "按截止日期排序（近的在上）")
-        addView(Spinner(this@MainActivity).apply {
-            id = R.id.task_sort_spinner
-            minimumHeight = dp(52)
-            backgroundTintList = ColorStateList.valueOf(palette.accent)
-            adapter = object : ArrayAdapter<String>(this@MainActivity, android.R.layout.simple_spinner_item, sortOrderNames) {
-                override fun getView(position: Int, convertView: View?, parent: ViewGroup): View =
-                    (super.getView(position, convertView, parent) as TextView).apply {
-                        setTextColor(palette.text)
-                        textSize = scaled(15f)
-                        setPadding(dp(8), dp(12), dp(8), dp(12))
-                    }
-                override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View =
-                    (super.getDropDownView(position, convertView, parent) as TextView).apply {
-                        setBackgroundColor(palette.surface)
-                        setTextColor(palette.text)
-                        textSize = scaled(15f)
-                        setPadding(dp(16), dp(14), dp(16), dp(14))
-                    }
-            }.also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-            setSelection(preferences.taskSortOrder.ordinal)
-            onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    val order = TaskSortOrder.entries.getOrNull(position) ?: TaskSortOrder.COURSE
-                    if (preferences.taskSortOrder != order) {
-                        preferences.taskSortOrder = order
-                        WidgetUpdater.refreshAll(this@MainActivity)
-                        render()
-                    }
-                }
-                override fun onNothingSelected(parent: android.widget.AdapterView<*>?) = Unit
+        }
+        addOptionGroup("小组件美化方案", listOf("Material 清透", "Notion 专注", "纸张时间线"), preferences.widgetStyle.ordinal, 3) { index ->
+            val style = WidgetStyle.entries.getOrNull(index) ?: WidgetStyle.MATERIAL_CLEAR
+            if (preferences.widgetStyle != style) {
+                // 只刷新桌面小组件，不影响 App 主题。
+                preferences.widgetStyle = style
+                WidgetUpdater.refreshAll(this@MainActivity)
             }
-        })
-        addView(label("小组件美化方案", 14f).apply {
-            setTextColor(palette.secondary)
-            setPadding(0, dp(16), 0, 0)
-        })
-        val widgetStyleNames = listOf("Material 清透", "Notion 专注", "纸张时间线")
-        addView(Spinner(this@MainActivity).apply {
-            id = R.id.widget_style_spinner
-            minimumHeight = dp(52)
-            backgroundTintList = ColorStateList.valueOf(palette.accent)
-            adapter = object : ArrayAdapter<String>(this@MainActivity, android.R.layout.simple_spinner_item, widgetStyleNames) {
-                override fun getView(position: Int, convertView: View?, parent: ViewGroup): View =
-                    (super.getView(position, convertView, parent) as TextView).apply {
-                        setTextColor(palette.text)
-                        textSize = scaled(15f)
-                        setPadding(dp(8), dp(12), dp(8), dp(12))
-                    }
-                override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View =
-                    (super.getDropDownView(position, convertView, parent) as TextView).apply {
-                        setBackgroundColor(palette.surface)
-                        setTextColor(palette.text)
-                        textSize = scaled(15f)
-                        setPadding(dp(16), dp(14), dp(16), dp(14))
-                    }
-            }.also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-            setSelection(preferences.widgetStyle.ordinal)
-            onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    val style = WidgetStyle.entries[position]
-                    if (preferences.widgetStyle != style) {
-                        preferences.widgetStyle = style
-                        WidgetUpdater.refreshAll(this@MainActivity)
-                    }
-                }
-                override fun onNothingSelected(parent: android.widget.AdapterView<*>?) = Unit
-            }
-        })
+        }
         val fontLabel = label("字体大小 ${preferences.fontScalePercent}%", 14f).apply {
             id = R.id.font_scale_value
             setPadding(0, dp(14), 0, 0)
@@ -869,6 +785,13 @@ class MainActivity : AppCompatActivity() {
             setTextColor(palette.secondary)
             setPadding(0, dp(2), 0, dp(8))
         })
+        addView(divider())
+        addView(sectionTitle("账号"))
+        addView(commandButton("退出登录", R.id.logout_button) { confirmLogout() })
+        addView(label("退出登录会清除本机保存的登录状态与 Cookie，需要重新登录才能同步真实数据。", 12f).apply {
+            setTextColor(palette.secondary)
+            setPadding(0, 0, 0, dp(8))
+        })
     }
 
     private fun showLicensesDialog() {
@@ -889,6 +812,82 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    private fun LinearLayout.addOptionGroup(
+        title: String,
+        options: List<String>,
+        selectedIndex: Int,
+        columns: Int,
+        onSelect: (Int) -> Unit,
+    ) {
+        addView(label(title, 14f).apply {
+            setTextColor(palette.secondary)
+            setPadding(0, dp(16), 0, dp(2))
+        })
+        var optionRow: LinearLayout? = null
+        options.forEachIndexed { index, text ->
+            if (index % columns == 0) {
+                optionRow = row().apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                }
+                addView(optionRow, LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                ).apply { topMargin = dp(6) })
+            }
+            optionRow!!.addView(optionChip(text, index == selectedIndex) { onSelect(index) },
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    if (index % columns != 0) marginStart = dp(8)
+                })
+        }
+    }
+
+    private fun optionChip(text: String, selected: Boolean, onClick: () -> Unit): View = TextView(this).apply {
+        this.text = text
+        textSize = scaled(13f)
+        gravity = Gravity.CENTER
+        setPadding(dp(6), dp(11), dp(6), dp(11))
+        setTextColor(if (selected) android.graphics.Color.WHITE else palette.text)
+        background = GradientDrawable().apply {
+            cornerRadius = dp(10).toFloat()
+            setColor(if (selected) palette.accent else palette.surface)
+            setStroke(dp(1), if (selected) palette.accent else palette.border)
+        }
+        setOnClickListener { onClick() }
+    }
+
+    /** 截止警示方案的静态预览行。 */
+    private fun previewRow(): MarkdownRow {
+        val now = Instant.now()
+        return MarkdownRow(
+            text = "示例任务 · 当前警示样式",
+            checked = false,
+            detail = "未提交 | 截止：明天 12:00（示例）",
+            startTime = now.minusSeconds(4 * 86_400),
+            deadline = now.plusSeconds(20 * 3_600),
+        )
+    }
+
+    private fun confirmLogout() {
+        AlertDialog.Builder(this)
+            .setTitle("退出登录")
+            .setMessage("退出后会清除本机保存的登录状态与 Cookie，需要重新登录才能同步真实数据。")
+            .setNegativeButton("取消", null)
+            .setPositiveButton("退出登录") { _, _ -> performLogout() }
+            .show()
+    }
+
+    private fun performLogout() {
+        disableRealtimeSync()
+        PlatformLoginService(this).logout()
+        preferences.invalidateSession()
+        CookieManager.getInstance().removeAllCookies {
+            preferences.invalidateSession()
+            CookieManager.getInstance().flush()
+            WebStorage.getInstance().deleteAllData()
+            SyncScheduler.requestNow(this@MainActivity)
+            toast("已退出登录")
+        }
+    }
+
     private fun sectionTitle(text: String): TextView = label(text, 13f, true).apply {
         setTextColor(palette.accent)
         setPadding(0, dp(22), 0, dp(10))
@@ -899,7 +898,7 @@ class MainActivity : AppCompatActivity() {
             disableRealtimeSync()
             return
         }
-        val isLiveDocument = markdown.read()?.lineSequence()?.firstOrNull()?.let { !it.contains("演示") } == true
+        val isLiveDocument = currentDocument().lineSequence().firstOrNull()?.let { !it.contains("演示") } == true
         if (preferences.demoMode || preferences.readSyncState().status != SyncStatus.SUCCESS || !isLiveDocument) {
             setRealtimeSwitch(toggle, false)
             toast("请先登录并成功同步课程平台数据")
@@ -994,7 +993,17 @@ class MainActivity : AppCompatActivity() {
     private fun dp(value: Int) = (resources.displayMetrics.density * value).toInt()
     private fun toast(message: String) { if (!isFinishing) Toast.makeText(this, message, Toast.LENGTH_LONG).show() }
 
-    companion object { private const val LIVE_REFRESH_INTERVAL_MS = 60_000L }
+    companion object {
+        private const val LIVE_REFRESH_INTERVAL_MS = 60_000L
+        private const val DOCUMENT_CACHE_MILLIS = 3_000L
+        private const val RENDER_DEBOUNCE_MILLIS = 60L
+        private val RENDER_KEYS = setOf(
+            "demo_mode", "has_logged_in", "last_account", "theme", "deadline_alert_style",
+            "task_sort_order", "widget_style", "font_scale_percent", "hide_completed",
+            "sync_status", "sync_message", "last_success", "source_generation",
+        )
+        private val DOCUMENT_KEYS = setOf("sync_status", "sync_message", "last_success", "source_generation")
+    }
 
     private fun requestBatteryOptimizationExemption() {
         val powerManager = getSystemService(PowerManager::class.java)
