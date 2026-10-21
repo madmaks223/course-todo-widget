@@ -26,6 +26,7 @@
     <item type="id" name="deadline_alert_spinner" />
     <item type="id" name="task_sort_spinner" />
     <item type="id" name="licenses_button" />
+    <item type="id" name="demo_login_button" />
     <item type="id" name="widget_style_spinner" />
     <item type="id" name="font_seekbar" />
     <item type="id" name="font_scale_value" />

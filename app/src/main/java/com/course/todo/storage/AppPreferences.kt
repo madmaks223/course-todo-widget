@@ -29,6 +29,11 @@ class AppPreferences(context: Context) {
             }
         }
     val sourceGeneration: Long get() = prefs.getLong("source_generation", 0)
+    /** 是否成功登录过。用于「演示数据只在首次安装时显示」的判断。 */
+    var hasLoggedIn: Boolean
+        get() = prefs.getBoolean("has_logged_in", false)
+        set(value) = prefs.edit().putBoolean("has_logged_in", value).apply()
+
     /** 最近一次登录的账号（脱敏），只用于设置页展示登录状态。 */
     var lastAccount: String
         get() = prefs.getString("last_account", "").orEmpty()

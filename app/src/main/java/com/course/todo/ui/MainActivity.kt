@@ -121,6 +121,10 @@ class MainActivity : AppCompatActivity() {
         selectedTab = savedInstanceState?.getInt("selectedTab")
             ?: if (intent.getBooleanExtra("show_settings", false)) 1 else 0
         SyncScheduler.schedule(this)
+        // 演示数据只在首次安装、未登录时展示；登录成功后永久切换到真实数据。
+        if (preferences.hasLoggedIn && preferences.demoMode) {
+            preferences.demoMode = false
+        }
         if (preferences.demoMode && markdown.read().isNullOrBlank()) SyncScheduler.requestNow(this)
     }
 
@@ -178,7 +182,7 @@ class MainActivity : AppCompatActivity() {
     private fun render() {
         rendering = true
         val previousScroll = findViewById<ScrollView>(R.id.main_content)?.scrollY ?: 0
-        palette = ThemePalette.resolveApp(this, preferences.theme, preferences.widgetStyle)
+        palette = ThemePalette.resolveApp(this, preferences.theme)
         window.statusBarColor = palette.background
         window.navigationBarColor = palette.background
         @Suppress("DEPRECATION")
@@ -205,7 +209,7 @@ class MainActivity : AppCompatActivity() {
         }, LinearLayout.LayoutParams(dp(42), dp(42)).apply { marginEnd = dp(12) })
         val headerCopy = column()
         headerCopy.addView(label(getString(R.string.app_name), 20f, true))
-        headerCopy.addView(label(if (preferences.demoMode) "演示数据 · 课程与截止时间" else "课程平台 · 课程与截止时间", 12f).apply {
+        headerCopy.addView(label(if (preferences.demoMode) "演示数据 · 登录学习通后同步真实课程" else "学习通 · 课程与截止时间", 12f).apply {
             setTextColor(palette.secondary)
             setPadding(0, dp(4), 0, 0)
         })
@@ -267,7 +271,7 @@ class MainActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 setMargins(dp(16), 0, dp(16), dp(8))
             }
-            addView(label("${if (preferences.demoMode) "演示数据" else "课程平台"} · $status", 14f).apply {
+            addView(label("${if (preferences.demoMode) "演示数据" else "学习通"} · $status", 14f).apply {
                 id = R.id.sync_status
                 setTextColor(if (state.status == SyncStatus.ERROR || state.status == SyncStatus.AUTH_REQUIRED)
                     0xFFB44F40.toInt() else palette.accent)
@@ -299,9 +303,23 @@ class MainActivity : AppCompatActivity() {
         val showTimeline = preferences.widgetStyle == WidgetStyle.PAPER_TIMELINE ||
             alertStyle == DeadlineAlertStyle.TIMELINE
         val taskPointRows = rows.filter { it.isTaskPoint }
+        val sessionAvailable = PlatformSession(this@MainActivity).hasSession()
         return column().apply {
             id = R.id.task_list
             setPadding(dp(20), dp(8), dp(20), dp(24))
+            if (preferences.demoMode || !sessionAvailable) {
+                addView(label(
+                    if (preferences.demoMode) "当前为演示数据 · 登录学习通后同步真实课程"
+                    else "请先登录学习通，才能同步真实课程与截止提醒",
+                    13f, true,
+                ).apply {
+                    setTextColor(alertColors.color)
+                    setPadding(0, dp(6), 0, dp(6))
+                })
+                addView(commandButton("登录学习通", R.id.demo_login_button) {
+                    startActivity(Intent(this@MainActivity, LoginActivity::class.java))
+                })
+            }
             addView(label("未完成任务", 13f, true).apply {
                 setTextColor(palette.accent)
                 setPadding(0, dp(8), 0, dp(2))
@@ -501,33 +519,44 @@ class MainActivity : AppCompatActivity() {
     private fun settingsSection(): View = column().apply {
         setPadding(dp(20), dp(8), dp(20), dp(24))
         addView(sectionTitle("数据来源"))
-        addView(RadioGroup(this@MainActivity).apply {
-            orientation = RadioGroup.HORIZONTAL
-            addView(RadioButton(this@MainActivity).apply {
-                id = R.id.source_mode_demo
-                text = "演示"
-                textSize = scaled(15f)
-                setTextColor(palette.text)
-                buttonTintList = controlTint()
-            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            addView(RadioButton(this@MainActivity).apply {
-                id = R.id.source_mode_live
-                text = "课程平台"
-                textSize = scaled(15f)
-                setTextColor(palette.text)
-                buttonTintList = controlTint()
-            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            check(if (preferences.demoMode) R.id.source_mode_demo else R.id.source_mode_live)
-            setOnCheckedChangeListener { _, checkedId ->
-                val demo = checkedId == R.id.source_mode_demo
-                if (preferences.demoMode != demo) {
-                    preferences.demoMode = demo
-                    if (demo) disableRealtimeSync()
-                    SyncScheduler.schedule(this@MainActivity)
-                    SyncScheduler.requestNow(this@MainActivity)
+        if (!preferences.hasLoggedIn) {
+            addView(RadioGroup(this@MainActivity).apply {
+                orientation = RadioGroup.HORIZONTAL
+                addView(RadioButton(this@MainActivity).apply {
+                    id = R.id.source_mode_demo
+                    text = "演示"
+                    textSize = scaled(15f)
+                    setTextColor(palette.text)
+                    buttonTintList = controlTint()
+                }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(RadioButton(this@MainActivity).apply {
+                    id = R.id.source_mode_live
+                    text = "学习通"
+                    textSize = scaled(15f)
+                    setTextColor(palette.text)
+                    buttonTintList = controlTint()
+                }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                check(if (preferences.demoMode) R.id.source_mode_demo else R.id.source_mode_live)
+                setOnCheckedChangeListener { _, checkedId ->
+                    val demo = checkedId == R.id.source_mode_demo
+                    if (preferences.demoMode != demo) {
+                        preferences.demoMode = demo
+                        if (demo) disableRealtimeSync()
+                        SyncScheduler.schedule(this@MainActivity)
+                        SyncScheduler.requestNow(this@MainActivity)
+                    }
                 }
-            }
-        })
+            })
+        } else {
+            addView(label("数据来源：学习通", 15f, true).apply {
+                setTextColor(palette.text)
+                setPadding(0, dp(4), 0, 0)
+            })
+            addView(label("演示数据已在首次登录后隐藏", 12f).apply {
+                setTextColor(palette.secondary)
+                setPadding(0, 0, 0, dp(8))
+            })
+        }
         if (!preferences.demoMode) {
             val state = preferences.readSyncState()
             val isLiveDocument = markdown.read()?.lineSequence()?.firstOrNull()?.let { !it.contains("演示") } == true

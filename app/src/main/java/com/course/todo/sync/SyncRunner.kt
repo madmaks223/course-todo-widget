@@ -59,7 +59,7 @@ object SyncRunner {
                 return@withContext Outcome.Stale
             }
             prefs.commitIfCurrent(generation) {
-                prefs.writeSyncState(SyncStatus.RUNNING, if (isDemo) "正在同步演示数据" else "正在读取课程平台")
+                prefs.writeSyncState(SyncStatus.RUNNING, if (isDemo) "正在准备演示数据" else "正在读取学习通")
             }
             try {
                 runCatching { WidgetUpdater.refreshAll(appContext) }
@@ -95,7 +95,7 @@ object SyncRunner {
                 prefs.commitIfCurrent(generation) {
                     prefs.writeSyncState(
                         SyncStatus.SUCCESS,
-                        (if (isDemo) "演示数据已更新" else "课程平台数据已更新") + warning,
+                        (if (isDemo) "演示数据 · 登录学习通后同步真实课程" else "学习通数据已更新") + warning,
                         snapshot.fetchedAt.toEpochMilli(),
                     )
                 }

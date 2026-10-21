@@ -89,7 +89,7 @@ class LoginActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         preferences = AppPreferences(this)
-        palette = ThemePalette.resolveApp(this, preferences.theme, preferences.widgetStyle)
+        palette = ThemePalette.resolveApp(this, preferences.theme)
         mode = when {
             intent.getBooleanExtra(EXTRA_WEB_MODE, false) -> Mode.WEB
             savedInstanceState?.getString("mode") == Mode.WEB.name -> Mode.WEB
@@ -390,6 +390,7 @@ class LoginActivity : AppCompatActivity() {
         showNativeStatus(message, error = false)
         rememberLoginAccount(accountInput.text.toString().trim())
         preferences.demoMode = false
+        preferences.hasLoggedIn = true
         preferences.realtimeSyncEnabled = true
         preferences.invalidateSession()
         SyncScheduler.schedule(this)
@@ -556,6 +557,7 @@ class LoginActivity : AppCompatActivity() {
                     showWebStatus("课程平台登录已验证")
                     if (closeOnSuccess) {
                         preferences.demoMode = false
+                        preferences.hasLoggedIn = true
                         preferences.realtimeSyncEnabled = true
                         rememberLoginAccount(accountInput.text.toString().trim())
                         preferences.invalidateSession()
