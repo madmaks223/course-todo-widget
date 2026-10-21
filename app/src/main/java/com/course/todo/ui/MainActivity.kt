@@ -85,6 +85,8 @@ class MainActivity : AppCompatActivity() {
     private var cachedDocument: String? = null
     private var cachedDocumentAt = 0L
     private var renderPosted = false
+    /** 外观选项改过：等切换页面时再一次性应用，避免点击时整页刷新。 */
+    private var appearanceDirty = false
     private val renderPending = Runnable {
         renderPosted = false
         if (isStarted && !isFinishing && !rendering) render()
@@ -93,7 +95,7 @@ class MainActivity : AppCompatActivity() {
         if (key == null) return@OnSharedPreferenceChangeListener
         runOnUiThread {
             if (key in DOCUMENT_KEYS) cachedDocument = null
-            if (key in RENDER_KEYS) scheduleRender()
+            if (key in RENDER_KEYS && (key !in DOCUMENT_KEYS || selectedTab == 0)) scheduleRender()
         }
     }
 
@@ -273,8 +275,14 @@ class MainActivity : AppCompatActivity() {
         tabs.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab) {
                 selectedTab = tab.position
-                showSelectedTab()
-                scroll.scrollTo(0, 0)
+                if (appearanceDirty) {
+                    // 外观选项在点击时不刷新，切换页面时统一应用。
+                    appearanceDirty = false
+                    render()
+                } else {
+                    showSelectedTab()
+                    scroll.scrollTo(0, 0)
+                }
             }
             override fun onTabUnselected(tab: TabLayout.Tab) = Unit
             override fun onTabReselected(tab: TabLayout.Tab) = Unit
@@ -661,44 +669,51 @@ class MainActivity : AppCompatActivity() {
         }
         addView(divider())
         addView(sectionTitle("外观"))
+        addView(label("点击选项不会刷新页面，切换页面后统一应用外观改动", 11f).apply {
+            setTextColor(palette.secondary)
+            setPadding(0, dp(2), 0, dp(2))
+        })
+        val previewHost = column()
         addOptionGroup("主题", listOf("跟随系统", "浅色", "深色", "薄荷", "纸张"), preferences.theme.ordinal, 3) { index ->
             val theme = ThemeStyle.entries.getOrNull(index) ?: ThemeStyle.SYSTEM
             if (preferences.theme != theme) {
-                // 只改变 App 配色，不刷新桌面小组件。
                 preferences.theme = theme
+                appearanceDirty = true
             }
         }
+        addView(label("切换页面后应用新主题", 11f).apply {
+            setTextColor(palette.secondary)
+            setPadding(0, dp(4), 0, 0)
+        })
         addOptionGroup("截止警示方案", listOf("柔和", "红边卡片", "时间线", "进度条"), preferences.deadlineAlertStyle.ordinal, 2) { index ->
             val style = DeadlineAlertStyle.entries.getOrNull(index) ?: DeadlineAlertStyle.SOFT
             if (preferences.deadlineAlertStyle != style) {
                 preferences.deadlineAlertStyle = style
+                appearanceDirty = true
+                updateAlertPreview(previewHost)
                 WidgetUpdater.refreshAll(this@MainActivity)
             }
         }
         addView(label("效果预览", 12f).apply {
             setTextColor(palette.secondary)
-            setPadding(0, dp(6), 0, dp(2))
+            setPadding(0, dp(8), 0, dp(4))
         })
-        addView(taskRowView(
-            previewRow(),
-            Instant.now(),
-            preferences.deadlineAlertStyle,
-            DeadlineAlertPalette.resolve(palette.background, preferences.deadlineAlertStyle),
-            preferences.deadlineAlertStyle == DeadlineAlertStyle.TIMELINE,
-        ))
+        addView(previewHost)
+        updateAlertPreview(previewHost)
         addView(divider())
         addOptionGroup("任务排序", listOf("按课程排序", "按截止日期（近的在上）"), preferences.taskSortOrder.ordinal, 2) { index ->
             val order = TaskSortOrder.entries.getOrNull(index) ?: TaskSortOrder.COURSE
             if (preferences.taskSortOrder != order) {
                 preferences.taskSortOrder = order
+                appearanceDirty = true
                 WidgetUpdater.refreshAll(this@MainActivity)
             }
         }
         addOptionGroup("小组件美化方案", listOf("Material 清透", "Notion 专注", "纸张时间线"), preferences.widgetStyle.ordinal, 3) { index ->
             val style = WidgetStyle.entries.getOrNull(index) ?: WidgetStyle.MATERIAL_CLEAR
             if (preferences.widgetStyle != style) {
-                // 只刷新桌面小组件，不影响 App 主题。
                 preferences.widgetStyle = style
+                appearanceDirty = true
                 WidgetUpdater.refreshAll(this@MainActivity)
             }
         }
@@ -745,6 +760,7 @@ class MainActivity : AppCompatActivity() {
             minimumHeight = dp(52)
             setOnCheckedChangeListener { _, checked ->
                 preferences.hideCompleted = checked
+                appearanceDirty = true
                 WidgetUpdater.refreshAll(this@MainActivity)
             }
         })
@@ -823,35 +839,43 @@ class MainActivity : AppCompatActivity() {
             setTextColor(palette.secondary)
             setPadding(0, dp(16), 0, dp(2))
         })
+        val chips = mutableListOf<TextView>()
         var optionRow: LinearLayout? = null
         options.forEachIndexed { index, text ->
             if (index % columns == 0) {
-                optionRow = row().apply {
-                    gravity = Gravity.CENTER_VERTICAL
-                }
+                optionRow = row().apply { gravity = Gravity.CENTER_VERTICAL }
                 addView(optionRow, LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
                 ).apply { topMargin = dp(6) })
             }
-            optionRow!!.addView(optionChip(text, index == selectedIndex) { onSelect(index) },
-                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-                    if (index % columns != 0) marginStart = dp(8)
-                })
+            val chip = optionChip(text, index == selectedIndex)
+            chips += chip
+            chip.setOnClickListener {
+                onSelect(index)
+                chips.forEachIndexed { chipIndex, item -> applyOptionChipStyle(item, chipIndex == index) }
+            }
+            optionRow!!.addView(chip, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                if (index % columns != 0) marginStart = dp(8)
+            })
         }
     }
 
-    private fun optionChip(text: String, selected: Boolean, onClick: () -> Unit): View = TextView(this).apply {
+    private fun optionChip(text: String, selected: Boolean): TextView = TextView(this).apply {
         this.text = text
         textSize = scaled(13f)
         gravity = Gravity.CENTER
         setPadding(dp(6), dp(11), dp(6), dp(11))
-        setTextColor(if (selected) android.graphics.Color.WHITE else palette.text)
-        background = GradientDrawable().apply {
+        applyOptionChipStyle(this, selected)
+    }
+
+    private fun applyOptionChipStyle(chip: TextView, selected: Boolean) {
+        if (!::palette.isInitialized) return
+        chip.setTextColor(if (selected) android.graphics.Color.WHITE else palette.text)
+        chip.background = GradientDrawable().apply {
             cornerRadius = dp(10).toFloat()
             setColor(if (selected) palette.accent else palette.surface)
             setStroke(dp(1), if (selected) palette.accent else palette.border)
         }
-        setOnClickListener { onClick() }
     }
 
     /** 截止警示方案的静态预览行。 */
@@ -864,6 +888,18 @@ class MainActivity : AppCompatActivity() {
             startTime = now.minusSeconds(4 * 86_400),
             deadline = now.plusSeconds(20 * 3_600),
         )
+    }
+
+    private fun updateAlertPreview(host: LinearLayout) {
+        if (!::palette.isInitialized) return
+        host.removeAllViews()
+        host.addView(taskRowView(
+            previewRow(),
+            Instant.now(),
+            preferences.deadlineAlertStyle,
+            DeadlineAlertPalette.resolve(palette.background, preferences.deadlineAlertStyle),
+            preferences.deadlineAlertStyle == DeadlineAlertStyle.TIMELINE,
+        ))
     }
 
     private fun confirmLogout() {
@@ -998,8 +1034,8 @@ class MainActivity : AppCompatActivity() {
         private const val DOCUMENT_CACHE_MILLIS = 3_000L
         private const val RENDER_DEBOUNCE_MILLIS = 60L
         private val RENDER_KEYS = setOf(
-            "demo_mode", "has_logged_in", "last_account", "theme", "deadline_alert_style",
-            "task_sort_order", "widget_style", "font_scale_percent", "hide_completed",
+            "demo_mode", "has_logged_in", "last_account",
+            "font_scale_percent",
             "sync_status", "sync_message", "last_success", "source_generation",
         )
         private val DOCUMENT_KEYS = setOf("sync_status", "sync_message", "last_success", "source_generation")
