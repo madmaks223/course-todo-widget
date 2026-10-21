@@ -65,17 +65,17 @@ class AppPreferences(context: Context) {
         get() = runCatching { ThemeStyle.valueOf(prefs.getString("theme", "SYSTEM")!!) }
             .getOrDefault(ThemeStyle.SYSTEM)
         set(value) { prefs.edit().putString("theme", value.name).apply() }
-    /** App 字体缩放（80%–400%）。旧版本共用的 font_scale 会自动作为初始值。 */
+    /** App 字体缩放（80%–200%）。旧版本共用的 font_scale 会自动作为初始值。 */
     var appFontScalePercent: Int
-        get() = prefs.getInt("app_font_scale", legacyFontScale()).coerceIn(80, 400)
-        set(value) { prefs.edit().putInt("app_font_scale", value.coerceIn(80, 400)).apply() }
+        get() = prefs.getInt("app_font_scale", legacyFontScale()).coerceIn(80, 200)
+        set(value) { prefs.edit().putInt("app_font_scale", value.coerceIn(80, 200)).apply() }
 
-    /** 桌面小组件字体缩放（80%–400%），与 App 字体大小独立。 */
+    /** 桌面小组件字体缩放（80%–200%），与 App 字体大小独立。 */
     var widgetFontScalePercent: Int
-        get() = prefs.getInt("widget_font_scale", legacyFontScale()).coerceIn(80, 400)
-        set(value) { prefs.edit().putInt("widget_font_scale", value.coerceIn(80, 400)).apply() }
+        get() = prefs.getInt("widget_font_scale", legacyFontScale()).coerceIn(80, 200)
+        set(value) { prefs.edit().putInt("widget_font_scale", value.coerceIn(80, 200)).apply() }
 
-    private fun legacyFontScale(): Int = prefs.getInt("font_scale", 100).coerceIn(80, 400)
+    private fun legacyFontScale(): Int = prefs.getInt("font_scale", 100).coerceIn(80, 200)
     var hideCompleted: Boolean
         get() = prefs.getBoolean("hide_completed", false)
         set(value) { prefs.edit().putBoolean("hide_completed", value).apply() }

@@ -48,7 +48,7 @@ object WidgetUpdater {
         val tasks = documentRows.filter { it.checked != null }
         val pendingTasks = visibleRows(documentRows, now, preferences.taskSortOrder).filter { it.checked != null }
         val urgentCount = pendingTasks.count { DeadlineRules.isUrgent(it, now) }
-        val fontScale = preferences.widgetFontScalePercent.coerceIn(80, 400) / 100f
+        val fontScale = preferences.widgetFontScalePercent.coerceIn(80, 200) / 100f
         val narrow = manager.getAppWidgetOptions(appWidgetId)
             .getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250) < 220
         val views = RemoteViews(context.packageName, R.layout.widget_todo)

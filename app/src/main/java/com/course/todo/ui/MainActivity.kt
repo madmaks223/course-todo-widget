@@ -822,8 +822,8 @@ class MainActivity : AppCompatActivity() {
         addView(valueLabel)
         val fontRow = row().apply { gravity = Gravity.CENTER_VERTICAL }
         val seekBar = SeekBar(this@MainActivity).apply {
-            max = (400 - 80) / 10
-            progress = (currentPercent - 80) / 10
+            max = (FONT_MAX_PERCENT - 80) / 10
+            progress = (currentPercent.coerceIn(80, FONT_MAX_PERCENT) - 80) / 10
             progressTintList = ColorStateList.valueOf(palette.accent)
             thumbTintList = ColorStateList.valueOf(palette.accent)
             contentDescription = title
@@ -834,7 +834,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
                 override fun onStopTrackingTouch(seekBar: SeekBar?) {
-                    val percent = (80 + (seekBar?.progress ?: 4) * 10).coerceIn(80, 400)
+                    val percent = (80 + (seekBar?.progress ?: 4) * 10).coerceIn(80, FONT_MAX_PERCENT)
                     valueLabel.text = "$title $percent%"
                     onChange(percent)
                 }
@@ -1055,6 +1055,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val LIVE_REFRESH_INTERVAL_MS = 60_000L
+        private const val FONT_MAX_PERCENT = 200
         private const val DOCUMENT_CACHE_MILLIS = 3_000L
         private const val RENDER_DEBOUNCE_MILLIS = 60L
         private val RENDER_KEYS = setOf(

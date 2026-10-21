@@ -57,7 +57,7 @@ class TodoWidgetService : RemoteViewsService() {
             val alertColors = DeadlineAlertPalette.resolve(palette.background, style)
             val dark = Color.luminance(palette.background) < 0.5f
             val showTimeline = palette.showTimeline || style == DeadlineAlertStyle.TIMELINE
-            val fontScale = preferences.widgetFontScalePercent.coerceIn(80, 400) / 100f
+            val fontScale = preferences.widgetFontScalePercent.coerceIn(80, 200) / 100f
             val layout = if (row.isHeading) R.layout.widget_heading else R.layout.widget_row
             val views = RemoteViews(context.packageName, layout)
             if (row.isHeading) {
