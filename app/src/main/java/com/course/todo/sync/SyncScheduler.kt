@@ -7,6 +7,7 @@ import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
@@ -51,10 +52,7 @@ object SyncScheduler {
         WorkManager.getInstance(context).enqueueUniqueWork(
             LIGHT_SYNC,
             ExistingWorkPolicy.KEEP,
-            OneTimeWorkRequestBuilder<SyncWorker>()
-                .setConstraints(singleConstraints(context))
-                .setInputData(workDataOf("full" to false))
-                .build(),
+            oneTimeWork(context, full = false),
         )
     }
 
@@ -66,17 +64,23 @@ object SyncScheduler {
         WorkManager.getInstance(context).enqueueUniqueWork(
             SINGLE_SYNC,
             ExistingWorkPolicy.KEEP,
-            OneTimeWorkRequestBuilder<SyncWorker>()
-                .apply {
-                    setInputData(workDataOf("full" to full))
-                    setConstraints(singleConstraints(context))
-                    if (expedited && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
-                    }
-                }
-                .build(),
+            oneTimeWork(context, full, expedited),
         )
     }
+
+    private fun oneTimeWork(
+        context: Context,
+        full: Boolean,
+        expedited: Boolean = false,
+    ): OneTimeWorkRequest = OneTimeWorkRequestBuilder<SyncWorker>()
+        .apply {
+            setInputData(workDataOf("full" to full))
+            setConstraints(singleConstraints(context))
+            if (expedited && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+            }
+        }
+        .build()
 
     private fun singleConstraints(context: Context): Constraints = Constraints.Builder().apply {
         if (!AppPreferences(context).demoMode) setRequiredNetworkType(NetworkType.CONNECTED)

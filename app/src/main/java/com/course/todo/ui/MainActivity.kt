@@ -21,7 +21,6 @@ import android.provider.Settings
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebStorage
-import android.widget.ArrayAdapter
 import android.widget.CheckBox
 import android.widget.FrameLayout
 import android.widget.ImageButton
@@ -31,7 +30,6 @@ import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.ScrollView
 import android.widget.SeekBar
-import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts

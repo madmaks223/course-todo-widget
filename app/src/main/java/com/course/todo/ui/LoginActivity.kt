@@ -27,6 +27,7 @@ import androidx.appcompat.widget.AppCompatButton
 import com.course.todo.R
 import com.course.todo.core.LoginNavigationDecision
 import com.course.todo.core.LoginNavigationPolicy
+import com.course.todo.data.PlatformHttpClient
 import com.course.todo.data.PlatformLoginService
 import com.course.todo.storage.AppPreferences
 import com.course.todo.sync.SyncAlarmScheduler
@@ -200,20 +201,16 @@ class LoginActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(0, dp(8), 0, 0)
         }
-        actions.addView(AppCompatButton(this).apply {
-            text = "完成登录"
-            id = R.id.login_done_button
-            isAllCaps = false
-            setTextColor(0xFFFFFFFF.toInt())
-            backgroundTintList = ColorStateList.valueOf(palette.accent)
-            setOnClickListener { verifyWebLogin(closeOnSuccess = true) }
-        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = dp(6) })
-        actions.addView(AppCompatButton(this).apply {
-            text = "重新加载"
-            id = R.id.login_reload_button
-            isAllCaps = false
-            setOnClickListener { reloadWeb() }
-        }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(6) })
+        actions.addView(
+            actionButton("完成登录", R.id.login_done_button, primary = true) {
+                verifyWebLogin(closeOnSuccess = true)
+            },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = dp(6) },
+        )
+        actions.addView(
+            actionButton("重新加载", R.id.login_reload_button, primary = false) { reloadWeb() },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(6) },
+        )
         root.addView(actions)
 
         val footer = LinearLayout(this).apply {
@@ -246,6 +243,22 @@ class LoginActivity : AppCompatActivity() {
         applyWebUserAgent()
     }
 
+    private fun actionButton(
+        text: String,
+        buttonId: Int,
+        primary: Boolean,
+        onClick: () -> Unit,
+    ): AppCompatButton = AppCompatButton(this).apply {
+        this.text = text
+        id = buttonId
+        isAllCaps = false
+        if (primary) {
+            setTextColor(0xFFFFFFFF.toInt())
+            backgroundTintList = ColorStateList.valueOf(palette.accent)
+        }
+        setOnClickListener { onClick() }
+    }
+
     private fun handleNavigation(url: String, isMainFrame: Boolean = true, method: String = "GET"): Boolean =
         when (val decision = LoginNavigationPolicy.decide(url, isMainFrame, method)) {
             LoginNavigationDecision.Allow -> false
@@ -260,7 +273,7 @@ class LoginActivity : AppCompatActivity() {
         }
 
     private fun applyWebUserAgent() {
-        webView?.settings?.userAgentString = if (desktopMode) DESKTOP_USER_AGENT else mobileUserAgent
+        webView?.settings?.userAgentString = if (desktopMode) PlatformHttpClient.DESKTOP_USER_AGENT else mobileUserAgent
     }
 
     private fun reloadWeb() {
@@ -320,8 +333,4 @@ class LoginActivity : AppCompatActivity() {
 
     private fun dp(value: Int) = (resources.displayMetrics.density * value).toInt()
 
-    private companion object {
-        private const val DESKTOP_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 " +
-            "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
 }

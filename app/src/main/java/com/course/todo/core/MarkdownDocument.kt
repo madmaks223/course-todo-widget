@@ -149,11 +149,14 @@ object MarkdownDocument {
 
     private fun escape(text: String): String = buildString {
         text.replace(Regex("[\\r\\n\\t]+"), " ").forEach { character ->
-            when (character) {
-                '&' -> append("&amp;")
-                '<' -> append("&lt;")
-                '>' -> append("&gt;")
-                '\\', '`', '*', '_', '[', ']', '|' -> { append('\\'); append(character) }
+            when {
+                character == '&' -> append("&amp;")
+                character == '<' -> append("&lt;")
+                character == '>' -> append("&gt;")
+                character in ESCAPED_MARKDOWN_CHARACTERS -> {
+                    append('\\')
+                    append(character)
+                }
                 else -> append(character)
             }
         }
@@ -170,6 +173,8 @@ object MarkdownDocument {
         CompletionState.NOT_STARTED -> "未开始"
         CompletionState.UNKNOWN -> "状态未知"
     }
+
+    private val ESCAPED_MARKDOWN_CHARACTERS = setOf('\\', '`', '*', '_', '[', ']', '|')
 
     private const val CHAPTERS_PER_COURSE = 200
 }

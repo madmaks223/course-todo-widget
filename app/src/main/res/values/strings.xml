@@ -1,12 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">课程待办</string>
-    <string name="widget_label">课程待办</string>
-    <string name="widget_refresh">刷新</string>
-    <string name="widget_configure">设置</string>
-    <string name="widget_empty">暂无待办</string>
     <string name="deadline_alert_soon">24 小时内截止</string>
-    <string name="deadline_alert_progress">剩余时间不足 30%</string>
     <item type="id" name="main_header_title" />
     <item type="id" name="refresh_button" />
     <item type="id" name="main_tabs" />
@@ -17,21 +12,13 @@
     <item type="id" name="source_mode_demo" />
     <item type="id" name="source_mode_live" />
     <item type="id" name="login_button" />
-    <item type="id" name="login_web_button" />
     <item type="id" name="login_desktop_toggle" />
     <item type="id" name="logout_button" />
     <item type="id" name="auto_sync_switch" />
     <item type="id" name="realtime_sync_switch" />
     <item type="id" name="battery_optimization_button" />
-    <item type="id" name="theme_spinner" />
-    <item type="id" name="deadline_alert_spinner" />
-    <item type="id" name="task_sort_spinner" />
     <item type="id" name="licenses_button" />
     <item type="id" name="demo_login_button" />
-    <item type="id" name="widget_style_spinner" />
-    <item type="id" name="font_seekbar" />
-    <item type="id" name="font_scale_value" />
-    <item type="id" name="font_reset_button" />
     <item type="id" name="hide_completed_checkbox" />
     <item type="id" name="export_markdown_button" />
     <item type="id" name="pin_widget_button" />

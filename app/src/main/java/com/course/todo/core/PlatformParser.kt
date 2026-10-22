@@ -318,8 +318,8 @@ object PlatformParser {
         }
         return items.mapNotNull { item ->
             val data = item.attr("data")
-            val courseId = Regex("[?&]courseId=(\\d+)").find(data)?.groupValues?.get(1)
-            val referenceId = Regex("[?&]taskrefId=(\\d+)").find(data)?.groupValues?.get(1)
+            val courseId = queryId(data, "courseId")
+            val referenceId = queryId(data, "taskrefId")
             val block = item.selectFirst("div[role=option]") ?: return@mapNotNull null
             val title = clean(block.selectFirst("p")?.text().orEmpty())
             if (title.isBlank()) return@mapNotNull null
@@ -353,8 +353,8 @@ object PlatformParser {
         }
         return items.mapNotNull { item ->
             val data = item.attr("data")
-            val courseId = Regex("[?&]courseId=(\\d+)").find(data)?.groupValues?.get(1)
-            val referenceId = Regex("[?&]taskrefId=(\\d+)").find(data)?.groupValues?.get(1)
+            val courseId = queryId(data, "courseId")
+            val referenceId = queryId(data, "taskrefId")
             val title = clean(item.attr("title").ifBlank { item.selectFirst("dt")?.text().orEmpty() })
             if (title.isBlank()) return@mapNotNull null
             val statusText = clean(item.selectFirst("span.ks_state")?.text().orEmpty()).ifBlank {
@@ -384,6 +384,10 @@ object PlatformParser {
             )
         }
     }
+
+    /** 从任务跳转链接里取数字参数（courseId / taskrefId 等）。 */
+    private fun queryId(url: String, name: String): String? =
+        Regex("[?&]$name=(\\d+)").find(url)?.groupValues?.get(1)
 
     // ------------------------------------------------------------------ 通用工具
 

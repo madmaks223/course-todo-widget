@@ -2,6 +2,21 @@
 
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## 0.9.6（2026-10-22）
+
+代码重构，减少重复（无行为变化）：
+
+- `AppPreferences`：统一 `edit{}` / `editSync{}` 帮助方法，20+ 个 setter 去掉重复模板代码。
+- `PlatformParser`：提取 `queryId()`，两个批量列表解析器共用 URL 参数解析。
+- `PlatformRepository`：提取 `fetchBulk()`，轻量同步两个接口共用限速与异常处理。
+- `SyncScheduler`：统一一次性同步任务构建，`requestNow / requestLight` 不再各写一遍 Worker。
+- `WidgetUpdater`：提取 `refreshPendingIntent()` 与 `RemoteViews.setTextSizeSp()`，去掉重复的 RemoteViews 样板。
+- `LoginActivity`：复用 `PlatformHttpClient` 的 UA 常量，按钮样式抽成 `actionButton()`。
+- `MarkdownDocument`：合并转义字符集合。
+- 删除死代码：`StudyRepository` 接口、data 包异常别名、`ThemePalette.isDark`、未使用的 UA 常量。
+- 删除未使用资源（2 个图标、1 个进度条 drawable、8 个未使用字符串/ID），lint warning 44 → 36。
+- 68 个单元测试通过；真机回归启动与轻量同步正常。
+
 ## 0.9.5（2026-10-22）
 
 真机回归测试 + 细节修复：

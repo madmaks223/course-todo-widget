@@ -6,7 +6,7 @@ import android.util.Log
 import com.course.todo.core.MarkdownDocument
 import com.course.todo.core.RiskControlRequired
 import com.course.todo.core.SampleData
-import com.course.todo.data.AuthenticationRequired
+import com.course.todo.core.AuthenticationRequired
 import com.course.todo.data.PlatformRepository
 import com.course.todo.storage.AppPreferences
 import com.course.todo.storage.MarkdownStore

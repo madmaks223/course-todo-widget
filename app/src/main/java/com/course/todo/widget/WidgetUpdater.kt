@@ -54,22 +54,12 @@ object WidgetUpdater {
             .getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250) < 220
         if (narrow) {
             views.setViewVisibility(R.id.widget_stale_badge, View.GONE)
-            views.setTextViewTextSize(R.id.widget_stale_big, TypedValue.COMPLEX_UNIT_SP, 22f)
-            views.setTextViewTextSize(R.id.widget_stale_sub, TypedValue.COMPLEX_UNIT_SP, 10f)
+            views.setTextSizeSp(R.id.widget_stale_big, 22f)
+            views.setTextSizeSp(R.id.widget_stale_sub, 10f)
             views.setViewPadding(R.id.widget_stale_content, dp(context, 10), dp(context, 8), dp(context, 10), dp(context, 8))
         }
         views.setInt(R.id.widget_stale_refresh_icon, "setColorFilter", 0xFFFFD9D5.toInt())
-        val refreshIntent = Intent(context, TodoWidgetProvider::class.java).apply {
-            action = TodoWidgetProvider.ACTION_REFRESH
-            data = Uri.parse("xxttodo://widget/$appWidgetId/stale")
-        }
-        val refresh = PendingIntent.getBroadcast(
-            context,
-            appWidgetId,
-            refreshIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        views.setOnClickPendingIntent(R.id.widget_stale_root, refresh)
+        views.setOnClickPendingIntent(R.id.widget_stale_root, refreshPendingIntent(context, appWidgetId, "stale"))
         AppWidgetManager.getInstance(context).updateAppWidget(appWidgetId, views)
     }
 
@@ -114,22 +104,14 @@ object WidgetUpdater {
         views.setTextColor(R.id.widget_empty, palette.secondary)
         views.setInt(R.id.widget_refresh, "setColorFilter", palette.accent)
         views.setInt(R.id.widget_settings, "setColorFilter", palette.secondary)
-        views.setTextViewTextSize(
-            R.id.widget_title, TypedValue.COMPLEX_UNIT_SP,
+        views.setTextSizeSp(
+            R.id.widget_title,
             if (narrow) 13f else (if (preferences.widgetStyle == com.course.todo.ui.WidgetStyle.PAPER_TIMELINE) 15f else 14f) * fontScale,
         )
-        views.setTextViewTextSize(
-            R.id.widget_count, TypedValue.COMPLEX_UNIT_SP, (11f * fontScale).coerceAtMost(44f),
-        )
-        views.setTextViewTextSize(
-            R.id.widget_urgent_count, TypedValue.COMPLEX_UNIT_SP, (11f * fontScale).coerceAtMost(44f),
-        )
-        views.setTextViewTextSize(
-            R.id.widget_status, TypedValue.COMPLEX_UNIT_SP, (11f * fontScale).coerceAtMost(44f),
-        )
-        views.setTextViewTextSize(
-            R.id.widget_empty, TypedValue.COMPLEX_UNIT_SP, (13f * fontScale).coerceAtMost(52f),
-        )
+        views.setTextSizeSp(R.id.widget_count, (11f * fontScale).coerceAtMost(44f))
+        views.setTextSizeSp(R.id.widget_urgent_count, (11f * fontScale).coerceAtMost(44f))
+        views.setTextSizeSp(R.id.widget_status, (11f * fontScale).coerceAtMost(44f))
+        views.setTextSizeSp(R.id.widget_empty, (13f * fontScale).coerceAtMost(52f))
         views.setTextViewText(
             R.id.widget_count,
             if (tasks.isEmpty()) "暂无任务" else "待完成 ${pendingTasks.size}",
@@ -208,19 +190,25 @@ object WidgetUpdater {
         )
         views.setPendingIntentTemplate(R.id.widget_list, rowTemplate)
 
-        val refreshIntent = Intent(context, TodoWidgetProvider::class.java).apply {
-            action = TodoWidgetProvider.ACTION_REFRESH
-            data = Uri.parse("xxttodo://widget/$appWidgetId/refresh")
-        }
-        val refresh = PendingIntent.getBroadcast(
-            context, appWidgetId, refreshIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        views.setOnClickPendingIntent(R.id.widget_refresh, refresh)
+        views.setOnClickPendingIntent(R.id.widget_refresh, refreshPendingIntent(context, appWidgetId, "refresh"))
         manager.updateAppWidget(appWidgetId, views)
         manager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_list)
     }
 }
+
+private fun refreshPendingIntent(context: Context, appWidgetId: Int, suffix: String): PendingIntent =
+    PendingIntent.getBroadcast(
+        context,
+        appWidgetId,
+        Intent(context, TodoWidgetProvider::class.java).apply {
+            action = TodoWidgetProvider.ACTION_REFRESH
+            data = Uri.parse("xxttodo://widget/$appWidgetId/$suffix")
+        },
+        PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+    )
+
+private fun RemoteViews.setTextSizeSp(viewId: Int, sp: Float) =
+    setTextViewTextSize(viewId, TypedValue.COMPLEX_UNIT_SP, sp)
 
 private const val STUCK_SYNC_WINDOW_MILLIS = 10 * 60 * 1000L
 

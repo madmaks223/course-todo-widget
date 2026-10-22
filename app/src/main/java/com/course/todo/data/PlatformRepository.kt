@@ -19,7 +19,6 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import java.time.Instant
 
@@ -29,27 +28,11 @@ import java.time.Instant
  * 采用「单门课失败不影响其它课程」的部分成功策略：失败课程写入 warnings，
  * 已有任务照常更新；只有全部课程都失败时才保留上一份文档（避免清空待办）。
  */
-class PlatformRepository(context: Context) : StudyRepository {
+class PlatformRepository(context: Context) {
     private val session = PlatformSession(context)
     private val http = PlatformHttpClient(session)
 
-    suspend fun verifySession(): Boolean = withContext(Dispatchers.IO) {
-        runCatching {
-            val response = http.get(HOME_URL)
-            response.code == 200 && response.finalUrl.startsWith(HOME_URL, ignoreCase = true)
-        }.getOrDefault(false)
-    }
-
-    /** 网页登录兜底后，把 WebView Cookie 同步到统一存储。 */
-    fun adoptWebViewCookies() {
-        session.copyFromWebViewCookieManager()
-    }
-
-    fun clearSession() {
-        session.clear()
-    }
-
-    override suspend fun fetch(): StudySnapshot = withContext(Dispatchers.IO) {
+    suspend fun fetch(): StudySnapshot = withContext(Dispatchers.IO) {
         val now = Instant.now()
         val courses = fetchCourses()
         if (courses.isEmpty()) throw ParseException("未获取到课程，已保留上次数据")
@@ -75,6 +58,14 @@ class PlatformRepository(context: Context) : StudyRepository {
             taskPoints = taskPoints,
             warnings = warnings.take(MAX_WARNINGS),
         )
+    }
+
+    /** 轻量同步的批量接口：限速 + 统一把登录/验证异常抛给上层。 */
+    private suspend fun <T> fetchBulk(url: String, parse: (String) -> T): Result<T> {
+        delay(LIGHT_SYNC_DELAY_MILLIS)
+        return runCatching { parse(http.get(url).body) }.onFailure { error ->
+            if (error is AuthenticationRequired || error is RiskControlRequired) throw error
+        }
     }
 
     private fun fetchCourses(): List<Course> {
@@ -111,18 +102,8 @@ class PlatformRepository(context: Context) : StudyRepository {
             course.copy(teacher = course.teacher.ifBlank { previousCourse?.teacher.orEmpty() })
         }
 
-        delay(LIGHT_SYNC_DELAY_MILLIS)
-        val works = runCatching {
-            PlatformParser.parseStuWorks(http.get(STU_WORK_URL).body, enrichedCourses, now)
-        }.onFailure { error ->
-            if (error is AuthenticationRequired || error is RiskControlRequired) throw error
-        }
-        delay(LIGHT_SYNC_DELAY_MILLIS)
-        val exams = runCatching {
-            PlatformParser.parsePhoneExams(http.get(EXAM_BULK_URL).body, enrichedCourses, now)
-        }.onFailure { error ->
-            if (error is AuthenticationRequired || error is RiskControlRequired) throw error
-        }
+        val works = fetchBulk(STU_WORK_URL) { body -> PlatformParser.parseStuWorks(body, enrichedCourses, now) }
+        val exams = fetchBulk(EXAM_BULK_URL) { body -> PlatformParser.parsePhoneExams(body, enrichedCourses, now) }
         if (works.isFailure && exams.isFailure) {
             throw UpstreamFailure("轻量同步失败，保留上次数据")
         }

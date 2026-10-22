@@ -91,5 +91,4 @@ object ThemePalette {
     /** App 配色跟随所选主题；小组件仍使用各自美化方案的配色。 */
     fun resolveApp(context: Context, theme: ThemeStyle): Palette = resolve(context, theme)
 
-    private fun isDark(palette: Palette) = Color.luminance(palette.background) < 0.5f
 }
