@@ -2,6 +2,14 @@
 
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## 0.9.2（2026-10-22）
+
+- 新增 30 分钟兜底闹钟（`AlarmManager.setAndAllowWhileIdle`）：即使前台服务和 WorkManager
+  被厂商省电策略延迟，也会每 30 分钟触发一次轻量同步并刷新小组件；Doze 下同样有效。
+- 闹钟在 App 启动、开机、登录成功后自动续期；退出登录时取消。
+- 「超过 4 小时未同步」红色警告保持：由闹钟/WorkManager/系统小组件刷新共同保证能及时出现。
+- README 增加刷新机制与参考链接。
+
 ## 0.9.1（2026-10-22）
 
 - 小组件刷新频率提升：常驻前台服务每分钟跟随系统 `ACTION_TIME_TICK` 刷新小组件，

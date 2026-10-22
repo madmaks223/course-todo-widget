@@ -7,6 +7,7 @@ import com.course.todo.core.SampleData
 import com.course.todo.storage.AppPreferences
 import com.course.todo.storage.MarkdownStore
 import com.course.todo.storage.SyncStatus
+import com.course.todo.sync.SyncAlarmScheduler
 import com.course.todo.sync.SyncScheduler
 
 class TodoApplication : Application() {
@@ -24,5 +25,6 @@ class TodoApplication : Application() {
             prefs.writeSyncState(SyncStatus.IDLE, "等待重新同步，保留上次文档")
         }
         SyncScheduler.schedule(this)
+        SyncAlarmScheduler.schedule(this)
     }
 }

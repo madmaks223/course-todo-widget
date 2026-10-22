@@ -29,6 +29,7 @@ import com.course.todo.core.LoginNavigationDecision
 import com.course.todo.core.LoginNavigationPolicy
 import com.course.todo.data.PlatformLoginService
 import com.course.todo.storage.AppPreferences
+import com.course.todo.sync.SyncAlarmScheduler
 import com.course.todo.sync.SyncScheduler
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -290,6 +291,7 @@ class LoginActivity : AppCompatActivity() {
                         preferences.invalidateSession()
                         SyncScheduler.schedule(this@LoginActivity)
                         SyncScheduler.requestNow(this@LoginActivity)
+                        SyncAlarmScheduler.schedule(this@LoginActivity)
                         setResult(RESULT_OK)
                         finish()
                     }

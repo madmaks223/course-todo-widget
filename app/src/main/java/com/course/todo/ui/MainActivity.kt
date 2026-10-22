@@ -50,6 +50,8 @@ import com.course.todo.storage.AppPreferences
 import com.course.todo.storage.MarkdownStore
 import com.course.todo.data.PlatformLoginService
 import com.course.todo.data.PlatformSession
+import com.course.todo.sync.SyncAlarmScheduler
+import com.course.todo.sync.SyncAlarmReceiver
 import com.course.todo.storage.SyncStatus
 import com.course.todo.sync.SyncScheduler
 import com.course.todo.sync.RealtimeSyncService
@@ -151,6 +153,9 @@ class MainActivity : AppCompatActivity() {
         }
         if (intent.getBooleanExtra("debug_preview_stale", false)) {
             startActivity(Intent(this, WidgetStalePreviewActivity::class.java))
+        }
+        if (intent.getBooleanExtra("debug_fire_alarm", false)) {
+            sendBroadcast(Intent(this, SyncAlarmReceiver::class.java).setAction(SyncAlarmScheduler.ACTION))
         }
         if (preferences.demoMode && currentDocument().isNullOrBlank()) SyncScheduler.requestNow(this)
     }
@@ -938,6 +943,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun performLogout() {
         disableRealtimeSync()
+        SyncAlarmScheduler.cancel(this)
         PlatformLoginService(this).logout()
         preferences.invalidateSession()
         CookieManager.getInstance().removeAllCookies {

@@ -132,8 +132,17 @@ Android 第三方小组件做不到系统时钟那种「每秒刷新」：
 2. **常驻服务每分钟刷新**：前台服务接收系统 `ACTION_TIME_TICK`，每分钟重算一次本地时间状态
    （临期、剩余时间、未同步警告），只更新界面、不联网；
 3. **App 在前台时**同样每分钟刷新一次；
-4. **系统兜底**：`updatePeriodMillis = 30 分钟`，即使服务被系统杀掉，也会被系统唤醒刷新；
-5. **数据同步**：前台服务每 2 分钟轻量同步一次（3 个请求），后台 WorkManager 15 分钟兜底。
+4. **30 分钟闹钟兜底**：`AlarmManager.setAndAllowWhileIdle` 每 30 分钟触发一次
+   （不需要精确闹钟权限，Doze 下也能被唤醒），触发轻量同步并刷新小组件；
+5. **WorkManager 兜底**：15 分钟周期任务（可跨重启，Doze 下可能被延迟）；
+6. **系统兜底**：`updatePeriodMillis = 30 分钟`，即使进程被系统杀掉，也会被系统唤醒刷新；
+7. **数据同步**：前台服务每 2 分钟轻量同步一次（3 个请求）。
+
+参考：[Android 官方 Schedule alarms（setAndAllowWhileIdle / Doze）](https://developer.android.com/develop/background-work/services/alarms/schedule)、
+[WorkManager 周期任务最短 15 分钟](https://developer.android.com/topic/libraries/architecture/workmanager/how-to/define-work#schedule_periodic)、
+[AppWidget updatePeriodMillis 最小 30 分钟](https://developer.android.com/reference/android/appwidget/AppWidgetProviderInfo#updatePeriodMillis)；
+以及开源项目 [android-simple-widget](https://github.com/murgupluoglu/android-simple-widget) 的刷新实践、
+[Monik](https://github.com/vovaxa55/Monik) 对国产 ROM（MIUI/HyperOS）后台限制的处理思路。
 
 正常使用时：课程数据约 2 分钟级更新，小组件的时间/临期/未同步警告约 1 分钟级刷新；
 极端省电或进程被冻结时最迟 15–30 分钟级恢复。若想要「秒级跳动」的视觉效果，

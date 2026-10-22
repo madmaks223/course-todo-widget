@@ -17,6 +17,7 @@ class BootReceiver : BroadcastReceiver() {
         val appContext = context.applicationContext
         val preferences = AppPreferences(appContext)
         SyncScheduler.schedule(appContext)
+        SyncAlarmScheduler.schedule(appContext)
         runCatching { WidgetUpdater.refreshAll(appContext) }
         if (preferences.demoMode) return
         if (preferences.realtimeSyncEnabled) {
