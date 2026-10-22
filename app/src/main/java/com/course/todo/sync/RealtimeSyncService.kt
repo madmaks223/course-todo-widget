@@ -5,17 +5,21 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.course.todo.R
 import com.course.todo.storage.AppPreferences
+import com.course.todo.widget.WidgetUpdater
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,10 +33,31 @@ import kotlinx.coroutines.launch
 class RealtimeSyncService : Service() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var pollingJob: Job? = null
+    private var timeTickReceiver: BroadcastReceiver? = null
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        registerTimeTickReceiver()
+    }
+
+    /** 每分钟跟随系统时间广播刷新小组件，让剩余时间/临期标记/未同步警告尽量接近实时。 */
+    private fun registerTimeTickReceiver() {
+        if (timeTickReceiver != null) return
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == Intent.ACTION_TIME_TICK) {
+                    Log.d("xxt-widget", "time tick -> refresh widget")
+                    runCatching { WidgetUpdater.refreshAll(this@RealtimeSyncService) }
+                }
+            }
+        }
+        timeTickReceiver = receiver
+        runCatching {
+            ContextCompat.registerReceiver(
+                this, receiver, IntentFilter(Intent.ACTION_TIME_TICK), ContextCompat.RECEIVER_NOT_EXPORTED,
+            )
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -56,6 +81,10 @@ class RealtimeSyncService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
+        timeTickReceiver?.let { receiver ->
+            runCatching { unregisterReceiver(receiver) }
+            timeTickReceiver = null
+        }
         serviceScope.cancel()
         super.onDestroy()
     }
