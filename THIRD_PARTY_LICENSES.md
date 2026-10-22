@@ -25,6 +25,10 @@ App 内「设置 → 关于 → 开源许可」可查看同样的许可信息。
 | junit:junit | 4.13.2 | Eclipse Public License 1.0 |
 | org.json:json | 20240303 | JSON License |
 
+## 图标
+
+- [Lucide Icons](https://lucide.dev)（ISC License）：刷新、设置等图标。
+
 ## 说明
 
 - 本项目为个人非官方项目，与任何课程平台官方无关联、无合作、无背书。

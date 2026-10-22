@@ -2,6 +2,12 @@
 
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## 0.9.7（2026-10-22）
+
+- 刷新与设置齿轮图标换成开源 [Lucide](https://lucide.dev) 图标（ISC License）：
+  圆头描边风格，与 App 圆角/纸张风格更统一；浅色、深色与红色警告页均适配。
+- 许可证说明补充 Lucide 图标来源。
+
 ## 0.9.6（2026-10-22）
 
 代码重构，减少重复（无行为变化）：
