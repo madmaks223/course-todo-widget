@@ -146,6 +146,9 @@ class MainActivity : AppCompatActivity() {
         intent.getIntExtra("debug_app_font", 0).takeIf { it in 80..400 }?.let {
             preferences.appFontScalePercent = it
         }
+        if (intent.getBooleanExtra("debug_open_login", false)) {
+            startActivity(Intent(this, LoginActivity::class.java))
+        }
         if (preferences.demoMode && currentDocument().isNullOrBlank()) SyncScheduler.requestNow(this)
     }
 
@@ -629,13 +632,8 @@ class MainActivity : AppCompatActivity() {
                     setPadding(0, 0, 0, dp(8))
                 })
             }
-            addView(commandButton("登录课程平台（账号密码 / 验证码）", R.id.login_button) {
+            addView(commandButton("登录学习通（网页登录 / 验证）", R.id.login_button) {
                 startActivity(Intent(this@MainActivity, LoginActivity::class.java))
-            })
-            addView(commandButton("网页登录 / 访问验证", R.id.login_web_button) {
-                startActivity(
-                    Intent(this@MainActivity, LoginActivity::class.java).putExtra(LoginActivity.EXTRA_WEB_MODE, true),
-                )
             })
         }
 
