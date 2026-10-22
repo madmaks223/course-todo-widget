@@ -280,8 +280,8 @@ class LoginActivity : AppCompatActivity() {
                 service.adoptWebViewCookies()
                 if (service.verifyCurrentSession()) {
                     showWebStatus("登录成功")
-                    markSessionActive()
-                    if (!closeOnSuccess) SyncScheduler.requestLight(this@LoginActivity)
+                    val activated = markSessionActive()
+                    if (!closeOnSuccess && activated) SyncScheduler.requestLight(this@LoginActivity)
                     if (closeOnSuccess) {
                         SyncScheduler.schedule(this@LoginActivity)
                         SyncScheduler.requestNow(this@LoginActivity)
@@ -299,8 +299,9 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
-    /** 网页里确认已登录后，把 App 切到真实数据并安排同步。 */
-    private fun markSessionActive() {
+    /** 网页里确认已登录后，把 App 切到真实数据并安排同步。返回是否发生了变化。 */
+    private fun markSessionActive(): Boolean {
+        if (preferences.hasLoggedIn && !preferences.demoMode && preferences.realtimeSyncEnabled) return false
         preferences.hasLoggedIn = true
         preferences.realtimeSyncEnabled = true
         preferences.demoMode = false
@@ -309,6 +310,7 @@ class LoginActivity : AppCompatActivity() {
         preferences.invalidateSession()
         SyncScheduler.schedule(this)
         SyncAlarmScheduler.schedule(this)
+        return true
     }
 
     private fun showWebStatus(message: String) {

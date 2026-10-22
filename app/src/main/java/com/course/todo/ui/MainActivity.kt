@@ -1074,6 +1074,7 @@ class MainActivity : AppCompatActivity() {
         private val RENDER_KEYS = setOf(
             "demo_mode", "has_logged_in", "last_account",
             "sync_status", "sync_message", "last_success", "source_generation",
+            "sync_started_at", "realtime_sync", "auto_sync",
         )
         private val DOCUMENT_KEYS = setOf("sync_status", "sync_message", "last_success", "source_generation")
     }
