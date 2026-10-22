@@ -23,6 +23,9 @@ class PlatformSession(context: Context) {
     /** 登录状态同时存一份本地文件，进程重启/SharedPreferences 异常时可恢复。 */
     private val stateFile = File(appContext.filesDir, "login_state.json")
 
+    /** 同步并发抓取时多个响应可能同时写 Cookie，避免读改写丢失。 */
+    private val writeLock = Any()
+
     private data class Entry(
         val name: String,
         val value: String,
@@ -66,7 +69,7 @@ class PlatformSession(context: Context) {
     fun cookieHeader(): String? = cookieHeaderFor("mooc1.chaoxing.com")
 
     /** 采集响应里的 Set-Cookie，保留 Domain / host-only 归属。 */
-    fun capture(sourceHost: String, setCookieHeaders: List<String>) {
+    fun capture(sourceHost: String, setCookieHeaders: List<String>) = synchronized(writeLock) {
         if (setCookieHeaders.isEmpty()) return
         val host = sourceHost.lowercase()
         val entries = readEntries().toMutableMap()
@@ -100,7 +103,7 @@ class PlatformSession(context: Context) {
      * 网页登录兜底 / 完成访问验证后，把 WebView 里的 Cookie 复制进统一存储。
      * CookieManager 不返回 Domain 属性，这里按已知的 passport 会话 Cookie 名单区分域名。
      */
-    fun copyFromWebViewCookieManager() {
+    fun copyFromWebViewCookieManager() = synchronized(writeLock) {
         val manager = CookieManager.getInstance()
         val entries = readEntries().toMutableMap()
         var changed = false
@@ -123,7 +126,7 @@ class PlatformSession(context: Context) {
         if (changed) writeEntries(entries)
     }
 
-    fun clear() {
+    fun clear() = synchronized(writeLock) {
         prefs.edit().remove(KEY_JAR).apply()
         runCatching { stateFile.delete() }
         runCatching { CookieManager.getInstance().removeAllCookies(null) }

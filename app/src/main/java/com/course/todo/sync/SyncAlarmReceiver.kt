@@ -20,8 +20,15 @@ class SyncAlarmReceiver : BroadcastReceiver() {
         if (prefs.realtimeSyncEnabled) {
             runCatching { RealtimeSyncService.start(appContext) }
         }
-        if (prefs.autoSyncEnabled) {
+        val state = prefs.readSyncState()
+        val recentlySynced = state.lastSuccessEpochMillis > 0 &&
+            System.currentTimeMillis() - state.lastSuccessEpochMillis < FRESH_WINDOW_MILLIS
+        if (prefs.autoSyncEnabled && !recentlySynced) {
             SyncScheduler.requestLight(appContext)
         }
+    }
+
+    private companion object {
+        const val FRESH_WINDOW_MILLIS = 25 * 60 * 1000L
     }
 }

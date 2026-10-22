@@ -24,7 +24,8 @@ class TodoWidgetProvider : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         if (intent.action == ACTION_REFRESH) {
-            SyncScheduler.requestNow(context)
+            // 小组件点按/刷新只做轻量同步，避免频繁点按触发访问验证；完整同步在 App 里手动刷新。
+            SyncScheduler.requestLight(context)
             WidgetUpdater.refreshAll(context)
         }
     }

@@ -35,10 +35,28 @@ object WidgetUpdater {
     }
 
     @Suppress("DEPRECATION")
-    private fun updateStaleWidget(context: Context, appWidgetId: Int, lastSuccessEpochMillis: Long) {
+    private fun updateStaleWidget(
+        context: Context,
+        appWidgetId: Int,
+        manager: AppWidgetManager,
+        lastSuccessEpochMillis: Long,
+    ) {
         val views = RemoteViews(context.packageName, R.layout.widget_stale)
-        val time = SimpleDateFormat("HH:mm", Locale.CHINA).format(Date(lastSuccessEpochMillis))
-        views.setTextViewText(R.id.widget_stale_last_sync, "上次同步 $time")
+        if (lastSuccessEpochMillis > 0L) {
+            val time = SimpleDateFormat("HH:mm", Locale.CHINA).format(Date(lastSuccessEpochMillis))
+            views.setTextViewText(R.id.widget_stale_last_sync, "上次同步 $time")
+        } else {
+            views.setTextViewText(R.id.widget_stale_last_sync, "尚未同步")
+            views.setTextViewText(R.id.widget_stale_sub, "尚未同步，点按刷新")
+        }
+        val narrow = manager.getAppWidgetOptions(appWidgetId)
+            .getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250) < 220
+        if (narrow) {
+            views.setViewVisibility(R.id.widget_stale_badge, View.GONE)
+            views.setTextViewTextSize(R.id.widget_stale_big, TypedValue.COMPLEX_UNIT_SP, 22f)
+            views.setTextViewTextSize(R.id.widget_stale_sub, TypedValue.COMPLEX_UNIT_SP, 10f)
+            views.setViewPadding(R.id.widget_stale_content, dp(context, 10), dp(context, 8), dp(context, 10), dp(context, 8))
+        }
         views.setInt(R.id.widget_stale_refresh_icon, "setColorFilter", 0xFFFFD9D5.toInt())
         val refreshIntent = Intent(context, TodoWidgetProvider::class.java).apply {
             action = TodoWidgetProvider.ACTION_REFRESH
@@ -66,7 +84,7 @@ object WidgetUpdater {
             syncing = state.status == SyncStatus.RUNNING,
         )
         if (stale) {
-            updateStaleWidget(context, appWidgetId, state.lastSuccessEpochMillis)
+            updateStaleWidget(context, appWidgetId, manager, state.lastSuccessEpochMillis)
             return
         }
         val palette = ThemePalette.resolveWidget(context, preferences.widgetStyle)

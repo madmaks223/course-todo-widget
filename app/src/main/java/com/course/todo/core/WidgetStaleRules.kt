@@ -14,7 +14,8 @@ object WidgetStaleRules {
         syncing: Boolean = false,
     ): Boolean {
         if (demoMode || !hasLoggedIn || syncing) return false
-        if (lastSuccessEpochMillis <= 0L) return false
+        // 登录后从未成功同步过，也算需要提醒（显示“尚未同步”）。
+        if (lastSuccessEpochMillis <= 0L) return true
         return nowEpochMillis - lastSuccessEpochMillis > STALE_THRESHOLD_MILLIS
     }
 }

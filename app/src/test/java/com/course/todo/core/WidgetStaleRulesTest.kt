@@ -21,8 +21,9 @@ class WidgetStaleRulesTest {
     }
 
     @Test
-    fun neverSyncedOrSyncingIsNotStale() {
-        assertFalse(WidgetStaleRules.isStale(0L, now, demoMode = false, hasLoggedIn = true))
+    fun neverSyncedIsStaleButSyncingIsNot() {
+        assertTrue(WidgetStaleRules.isStale(0L, now, demoMode = false, hasLoggedIn = true))
+        assertFalse(WidgetStaleRules.isStale(0L, now, demoMode = false, hasLoggedIn = false))
         assertFalse(
             WidgetStaleRules.isStale(now - 10 * hour, now, demoMode = false, hasLoggedIn = true, syncing = true),
         )
