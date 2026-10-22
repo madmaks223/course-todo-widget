@@ -10,8 +10,8 @@ android {
         applicationId = "com.course.todo"
         minSdk = 26
         targetSdk = 34
-        versionCode = 19
-        versionName = "0.9.3"
+        versionCode = 20
+        versionName = "0.9.4"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

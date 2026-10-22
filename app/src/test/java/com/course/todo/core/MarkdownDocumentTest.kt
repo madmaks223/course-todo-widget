@@ -192,4 +192,28 @@ class MarkdownDocumentTest {
         ).single()
         assertEquals(Instant.parse("2026-10-14T05:00:00Z"), row.deadline)
     }
+
+    @Test
+    fun taskTitleWithPipeRoundTrips() {
+        val now = java.time.Instant.parse("2026-10-21T08:00:00Z")
+        val snapshot = StudySnapshot(
+            courses = listOf(Course("1", "2", "3", "高等数学")),
+            tasks = listOf(
+                StudyTask(
+                    id = "assignment:1:9",
+                    courseId = "1",
+                    courseName = "高等数学",
+                    title = "A | B 作业",
+                    kind = TaskKind.ASSIGNMENT,
+                    state = CompletionState.PENDING,
+                    deadline = now.plusSeconds(86_400),
+                ),
+            ),
+            fetchedAt = now,
+            taskPoints = emptyList(),
+            warnings = emptyList(),
+        )
+        val rows = MarkdownDocument.parse(MarkdownDocument.render(snapshot))
+        assertEquals("作业：A | B 作业", rows.first { it.checked != null }.text)
+    }
 }

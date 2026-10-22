@@ -318,12 +318,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun statusSection(): View {
         val state = preferences.readSyncState()
-        val status = when (state.status) {
-            SyncStatus.IDLE -> "等待同步"
-            SyncStatus.RUNNING -> "正在同步"
-            SyncStatus.SUCCESS -> "同步完成"
-            SyncStatus.ERROR -> "同步失败"
-            SyncStatus.AUTH_REQUIRED -> "需要登录课程平台"
+        val syncStuck = state.status == SyncStatus.RUNNING &&
+            System.currentTimeMillis() - preferences.syncStartedAt > STUCK_SYNC_WINDOW_MILLIS
+        val status = when {
+            syncStuck -> "同步可能已中断，请下拉刷新或重新登录"
+            state.status == SyncStatus.IDLE -> "等待同步"
+            state.status == SyncStatus.RUNNING -> "正在同步"
+            state.status == SyncStatus.SUCCESS -> "同步完成"
+            state.status == SyncStatus.ERROR -> "同步失败"
+            else -> "需要登录课程平台"
         }
         return column().apply {
             setPadding(dp(16), dp(12), dp(16), dp(12))
@@ -379,7 +382,7 @@ class MainActivity : AppCompatActivity() {
                     startActivity(Intent(this@MainActivity, LoginActivity::class.java))
                 })
             }
-            addView(label("未完成任务", 13f, true).apply {
+            addView(label("课程任务", 13f, true).apply {
                 setTextColor(palette.accent)
                 setPadding(0, dp(8), 0, dp(2))
             })
@@ -944,13 +947,15 @@ class MainActivity : AppCompatActivity() {
     private fun performLogout() {
         disableRealtimeSync()
         SyncAlarmScheduler.cancel(this)
+        SyncScheduler.cancel(this)
         PlatformLoginService(this).logout()
         preferences.invalidateSession()
         CookieManager.getInstance().removeAllCookies {
             preferences.invalidateSession()
             CookieManager.getInstance().flush()
             WebStorage.getInstance().deleteAllData()
-            SyncScheduler.requestNow(this@MainActivity)
+            preferences.writeSyncState(SyncStatus.AUTH_REQUIRED, "已退出登录，请重新登录")
+            WidgetUpdater.refreshAll(this@MainActivity)
             toast("已退出登录")
         }
     }
@@ -1062,6 +1067,7 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val LIVE_REFRESH_INTERVAL_MS = 60_000L
+        private const val STUCK_SYNC_WINDOW_MILLIS = 10 * 60 * 1000L
         private const val FONT_MAX_PERCENT = 200
         private const val DOCUMENT_CACHE_MILLIS = 3_000L
         private const val RENDER_DEBOUNCE_MILLIS = 60L

@@ -58,6 +58,7 @@ object SyncRunner {
                 Log.d("course-sync", "skip sync during risk-control cooldown")
                 return@withContext Outcome.Stale
             }
+            prefs.syncStartedAt = System.currentTimeMillis()
             prefs.commitIfCurrent(generation) {
                 prefs.writeSyncState(SyncStatus.RUNNING, if (isDemo) "正在准备演示数据" else "正在读取学习通")
             }

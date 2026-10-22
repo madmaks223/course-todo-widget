@@ -34,7 +34,10 @@ class PlatformRepository(context: Context) : StudyRepository {
     private val http = PlatformHttpClient(session)
 
     suspend fun verifySession(): Boolean = withContext(Dispatchers.IO) {
-        runCatching { http.get(HOME_URL) }.isSuccess
+        runCatching {
+            val response = http.get(HOME_URL)
+            response.code == 200 && response.finalUrl.startsWith(HOME_URL, ignoreCase = true)
+        }.getOrDefault(false)
     }
 
     /** 网页登录兜底后，把 WebView Cookie 同步到统一存储。 */
@@ -96,12 +99,13 @@ class PlatformRepository(context: Context) : StudyRepository {
      */
     suspend fun fetchLight(previous: StudySnapshot): StudySnapshot = withContext(Dispatchers.IO) {
         val now = Instant.now()
-        val courses = runCatching {
+        val parsedCourses = runCatching {
             PlatformParser.parseCourseJson(http.get(COURSE_JSON_URL).body)
         }.getOrElse { error ->
             if (error is AuthenticationRequired || error is RiskControlRequired) throw error
             previous.courses
         }
+        val courses = parsedCourses.ifEmpty { previous.courses }
         val enrichedCourses = courses.map { course ->
             val previousCourse = previous.courses.firstOrNull { it.id == course.id }
             course.copy(teacher = course.teacher.ifBlank { previousCourse?.teacher.orEmpty() })
@@ -133,7 +137,8 @@ class PlatformRepository(context: Context) : StudyRepository {
             tasks = mergedTasks,
             fetchedAt = now,
             taskPoints = previous.taskPoints,
-            warnings = emptyList(),
+            // 轻量同步不刷新任务点，保留完整同步里「任务点目录未加载」这类提示。
+            warnings = previous.warnings.filter { it.contains("任务点") },
         )
     }
 

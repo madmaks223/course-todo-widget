@@ -17,14 +17,19 @@ class SyncAlarmReceiver : BroadcastReceiver() {
         val prefs = AppPreferences(appContext)
         runCatching { WidgetUpdater.refreshAll(appContext) }
         if (prefs.demoMode) return
+        var serviceStarted = false
         if (prefs.realtimeSyncEnabled) {
-            runCatching { RealtimeSyncService.start(appContext) }
+            // 前台服务启动后会立即自己同步一次，不再额外排 WorkManager。
+            serviceStarted = runCatching {
+                RealtimeSyncService.start(appContext)
+                true
+            }.getOrDefault(false)
         }
-        val state = prefs.readSyncState()
-        val recentlySynced = state.lastSuccessEpochMillis > 0 &&
-            System.currentTimeMillis() - state.lastSuccessEpochMillis < FRESH_WINDOW_MILLIS
-        if (prefs.autoSyncEnabled && !recentlySynced) {
-            SyncScheduler.requestLight(appContext)
+        if (prefs.autoSyncEnabled && !serviceStarted) {
+            val state = prefs.readSyncState()
+            val recentlySynced = state.lastSuccessEpochMillis > 0 &&
+                System.currentTimeMillis() - state.lastSuccessEpochMillis < FRESH_WINDOW_MILLIS
+            if (!recentlySynced) SyncScheduler.requestLight(appContext)
         }
     }
 

@@ -280,18 +280,11 @@ class LoginActivity : AppCompatActivity() {
                 service.adoptWebViewCookies()
                 if (service.verifyCurrentSession()) {
                     showWebStatus("登录成功")
+                    markSessionActive()
+                    if (!closeOnSuccess) SyncScheduler.requestLight(this@LoginActivity)
                     if (closeOnSuccess) {
-                        preferences.demoMode = false
-                        preferences.hasLoggedIn = true
-                        preferences.realtimeSyncEnabled = true
-                        if (preferences.lastAccount.isBlank()) {
-                            preferences.lastAccount = "网页登录账号"
-                        }
-                        preferences.lastLoginAt = System.currentTimeMillis()
-                        preferences.invalidateSession()
                         SyncScheduler.schedule(this@LoginActivity)
                         SyncScheduler.requestNow(this@LoginActivity)
-                        SyncAlarmScheduler.schedule(this@LoginActivity)
                         setResult(RESULT_OK)
                         finish()
                     }
@@ -304,6 +297,18 @@ class LoginActivity : AppCompatActivity() {
                 showWebStatus("登录状态验证失败，请检查网络后重试")
             }
         }
+    }
+
+    /** 网页里确认已登录后，把 App 切到真实数据并安排同步。 */
+    private fun markSessionActive() {
+        preferences.hasLoggedIn = true
+        preferences.realtimeSyncEnabled = true
+        preferences.demoMode = false
+        if (preferences.lastAccount.isBlank()) preferences.lastAccount = "网页登录账号"
+        preferences.lastLoginAt = System.currentTimeMillis()
+        preferences.invalidateSession()
+        SyncScheduler.schedule(this)
+        SyncAlarmScheduler.schedule(this)
     }
 
     private fun showWebStatus(message: String) {

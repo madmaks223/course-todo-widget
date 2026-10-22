@@ -124,6 +124,11 @@ class AppPreferences(context: Context) {
         get() = prefs.getString("export_uri", null)
         set(value) { prefs.edit().putString("export_uri", value).apply() }
 
+    /** 最近一次同步开始时间（毫秒），用于识别进程被杀后残留的 RUNNING 状态。 */
+    var syncStartedAt: Long
+        get() = prefs.getLong("sync_started_at", 0L)
+        set(value) = prefs.edit().putLong("sync_started_at", value).apply()
+
     fun readSyncState(): SyncState = SyncState(
         runCatching { SyncStatus.valueOf(prefs.getString("sync_status", "IDLE")!!) }
             .getOrDefault(SyncStatus.IDLE),

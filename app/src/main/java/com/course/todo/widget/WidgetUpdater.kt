@@ -48,6 +48,7 @@ object WidgetUpdater {
         } else {
             views.setTextViewText(R.id.widget_stale_last_sync, "尚未同步")
             views.setTextViewText(R.id.widget_stale_sub, "尚未同步，点按刷新")
+            views.setTextViewText(R.id.widget_stale_pill, "尚未同步")
         }
         val narrow = manager.getAppWidgetOptions(appWidgetId)
             .getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250) < 220
@@ -76,12 +77,14 @@ object WidgetUpdater {
         val manager = AppWidgetManager.getInstance(context)
         val preferences = AppPreferences(context)
         val state = preferences.readSyncState()
+        val syncStuck = state.status == SyncStatus.RUNNING &&
+            System.currentTimeMillis() - preferences.syncStartedAt > STUCK_SYNC_WINDOW_MILLIS
         val stale = WidgetStaleRules.isStale(
             lastSuccessEpochMillis = state.lastSuccessEpochMillis,
             nowEpochMillis = System.currentTimeMillis(),
             demoMode = preferences.demoMode,
             hasLoggedIn = preferences.hasLoggedIn,
-            syncing = state.status == SyncStatus.RUNNING,
+            syncing = state.status == SyncStatus.RUNNING && !syncStuck,
         )
         if (stale) {
             updateStaleWidget(context, appWidgetId, manager, state.lastSuccessEpochMillis)
@@ -139,7 +142,7 @@ object WidgetUpdater {
         val hasExportWarning = state.status == SyncStatus.SUCCESS && state.message.contains("外部 Markdown 写入失败")
         val statusPrefix = if (isDemo) "演示 · " else ""
         val statusText = when (state.status) {
-            SyncStatus.RUNNING -> state.message.ifBlank { "正在同步课程平台..." }
+            SyncStatus.RUNNING -> if (syncStuck) "同步已中断，点按刷新" else state.message.ifBlank { "正在同步学习通..." }
             SyncStatus.AUTH_REQUIRED -> "需要登录课程平台"
             SyncStatus.ERROR -> state.message.ifBlank { "同步失败，请打开 App 查看" }
             SyncStatus.IDLE, SyncStatus.SUCCESS -> {
@@ -218,6 +221,8 @@ object WidgetUpdater {
         manager.notifyAppWidgetViewDataChanged(appWidgetId, R.id.widget_list)
     }
 }
+
+private const val STUCK_SYNC_WINDOW_MILLIS = 10 * 60 * 1000L
 
 private fun dp(context: Context, value: Int): Int =
     (value * context.resources.displayMetrics.density).toInt()

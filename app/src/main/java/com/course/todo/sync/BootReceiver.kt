@@ -22,8 +22,8 @@ class BootReceiver : BroadcastReceiver() {
         if (preferences.demoMode) return
         if (preferences.realtimeSyncEnabled) {
             runCatching { RealtimeSyncService.start(appContext) }
-        } else {
-            SyncScheduler.requestNow(appContext)
+        } else if (preferences.autoSyncEnabled) {
+            SyncScheduler.requestLight(appContext)
         }
     }
 }
