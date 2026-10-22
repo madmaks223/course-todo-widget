@@ -39,6 +39,10 @@
 | --- |
 | ![时间进度条](docs/images/preview-highlight-progress.png) |
 
+| 超过 4 小时未同步的红色警告 |
+| --- |
+| ![未同步警告](docs/images/widget-stale.png) |
+
 > 截图使用脱敏演示数据渲染。
 
 ## 使用

@@ -23,6 +23,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".ui.LoginActivity" android:exported="false" />
+        <activity android:name=".ui.WidgetStalePreviewActivity" android:exported="false" />
         <receiver android:name=".widget.TodoWidgetProvider" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />

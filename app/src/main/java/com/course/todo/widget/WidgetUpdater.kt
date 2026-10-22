@@ -15,6 +15,7 @@ import com.course.todo.core.MarkdownDocument
 import com.course.todo.core.MarkdownRow
 import com.course.todo.core.TaskSortOrder
 import com.course.todo.core.TodoOrdering
+import com.course.todo.core.WidgetStaleRules
 import com.course.todo.storage.AppPreferences
 import com.course.todo.storage.MarkdownStore
 import com.course.todo.storage.SyncStatus
@@ -34,9 +35,40 @@ object WidgetUpdater {
     }
 
     @Suppress("DEPRECATION")
+    private fun updateStaleWidget(context: Context, appWidgetId: Int, lastSuccessEpochMillis: Long) {
+        val views = RemoteViews(context.packageName, R.layout.widget_stale)
+        val time = SimpleDateFormat("HH:mm", Locale.CHINA).format(Date(lastSuccessEpochMillis))
+        views.setTextViewText(R.id.widget_stale_last_sync, "上次同步 $time")
+        views.setInt(R.id.widget_stale_refresh_icon, "setColorFilter", 0xFFFFD9D5.toInt())
+        val refreshIntent = Intent(context, TodoWidgetProvider::class.java).apply {
+            action = TodoWidgetProvider.ACTION_REFRESH
+            data = Uri.parse("xxttodo://widget/$appWidgetId/stale")
+        }
+        val refresh = PendingIntent.getBroadcast(
+            context,
+            appWidgetId,
+            refreshIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        views.setOnClickPendingIntent(R.id.widget_stale_root, refresh)
+        AppWidgetManager.getInstance(context).updateAppWidget(appWidgetId, views)
+    }
+
     fun refresh(context: Context, appWidgetId: Int) {
         val manager = AppWidgetManager.getInstance(context)
         val preferences = AppPreferences(context)
+        val state = preferences.readSyncState()
+        val stale = WidgetStaleRules.isStale(
+            lastSuccessEpochMillis = state.lastSuccessEpochMillis,
+            nowEpochMillis = System.currentTimeMillis(),
+            demoMode = preferences.demoMode,
+            hasLoggedIn = preferences.hasLoggedIn,
+            syncing = state.status == SyncStatus.RUNNING,
+        )
+        if (stale) {
+            updateStaleWidget(context, appWidgetId, state.lastSuccessEpochMillis)
+            return
+        }
         val palette = ThemePalette.resolveWidget(context, preferences.widgetStyle)
         val alertColors = DeadlineAlertPalette.resolve(palette.background, preferences.deadlineAlertStyle)
         val markdown = MarkdownStore(context).read()
@@ -86,7 +118,6 @@ object WidgetUpdater {
         views.setContentDescription(R.id.widget_urgent_count, urgentText)
         views.setViewVisibility(R.id.widget_urgent_count, if (urgentCount > 0) View.VISIBLE else View.GONE)
 
-        val state = preferences.readSyncState()
         val hasExportWarning = state.status == SyncStatus.SUCCESS && state.message.contains("外部 Markdown 写入失败")
         val statusPrefix = if (isDemo) "演示 · " else ""
         val statusText = when (state.status) {

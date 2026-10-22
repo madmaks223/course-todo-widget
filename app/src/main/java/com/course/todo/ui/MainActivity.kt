@@ -149,6 +149,9 @@ class MainActivity : AppCompatActivity() {
         if (intent.getBooleanExtra("debug_open_login", false)) {
             startActivity(Intent(this, LoginActivity::class.java))
         }
+        if (intent.getBooleanExtra("debug_preview_stale", false)) {
+            startActivity(Intent(this, WidgetStalePreviewActivity::class.java))
+        }
         if (preferences.demoMode && currentDocument().isNullOrBlank()) SyncScheduler.requestNow(this)
     }
 
