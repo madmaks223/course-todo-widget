@@ -9,6 +9,7 @@ AndroidX WorkManager — Apache License 2.0
 Kotlin Standard Library — Apache License 2.0
 jsoup: Java HTML Parser — MIT License
 Lucide Icons — ISC License (https://lucide.dev)
+Material Icons — Apache License 2.0 (https://fonts.google.com/icons)
 
 Apache License 2.0: https://www.apache.org/licenses/LICENSE-2.0
 MIT License: https://opensource.org/license/mit

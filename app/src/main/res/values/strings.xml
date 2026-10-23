@@ -18,6 +18,8 @@
     <item type="id" name="realtime_sync_switch" />
     <item type="id" name="battery_optimization_button" />
     <item type="id" name="licenses_button" />
+    <item type="id" name="manual_add_course_button" />
+    <item type="id" name="manual_add_task_button" />
     <item type="id" name="demo_login_button" />
     <item type="id" name="hide_completed_checkbox" />
     <item type="id" name="export_markdown_button" />

@@ -62,6 +62,57 @@
                 android:src="@drawable/ic_settings" />
         </LinearLayout>
 
+        <LinearLayout
+            android:id="@+id/widget_focus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="5dp"
+            android:background="@drawable/widget_focus_background"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="9dp"
+            android:paddingVertical="7dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:id="@+id/widget_focus_icon"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:importantForAccessibility="no"
+                android:src="@drawable/ic_star_filled" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/widget_focus_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:fontFamily="sans"
+                    android:maxLines="1"
+                    android:text="特别关注"
+                    android:textColor="#FFF6D8"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/widget_focus_detail"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:fontFamily="sans"
+                    android:maxLines="1"
+                    android:text="2 项待办"
+                    android:textColor="#F5E7B8"
+                    android:textSize="10sp" />
+            </LinearLayout>
+        </LinearLayout>
+
         <TextView
             android:id="@+id/widget_count"
             android:layout_width="match_parent"

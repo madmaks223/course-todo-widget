@@ -28,6 +28,7 @@ App 内「设置 → 关于 → 开源许可」可查看同样的许可信息。
 ## 图标
 
 - [Lucide Icons](https://lucide.dev)（ISC License）：刷新、设置等图标。
+- [Material Icons](https://fonts.google.com/icons)（Apache License 2.0）：特别关注星标图标。
 
 ## 说明
 

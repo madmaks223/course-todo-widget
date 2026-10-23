@@ -15,6 +15,7 @@ import com.course.todo.core.MarkdownDocument
 import com.course.todo.core.MarkdownRow
 import com.course.todo.core.TaskSortOrder
 import com.course.todo.core.TodoOrdering
+import com.course.todo.core.TaskKind
 import com.course.todo.core.WidgetStaleRules
 import com.course.todo.storage.AppPreferences
 import com.course.todo.storage.MarkdownStore
@@ -63,10 +64,29 @@ object WidgetUpdater {
         AppWidgetManager.getInstance(context).updateAppWidget(appWidgetId, views)
     }
 
+    /** 特别关注课程里待完成、未过期的任务，按截止时间排序。 */
+    private fun starredFocusTasks(
+        rows: List<MarkdownRow>,
+        now: Instant,
+        starredCourses: Set<String>,
+    ): List<TodoOrdering.DisplayRow.Task> {
+        if (starredCourses.isEmpty()) return emptyList()
+        val ordered = TodoOrdering.build(DeadlineRules.filterVisible(rows, now), TaskSortOrder.DEADLINE)
+        return ordered.filterIsInstance<TodoOrdering.DisplayRow.Task>()
+            .filter { it.course in starredCourses && it.row.checked == false }
+            .sortedBy { it.row.deadline ?: Instant.MAX }
+    }
+
     fun refresh(context: Context, appWidgetId: Int) {
         val manager = AppWidgetManager.getInstance(context)
         val preferences = AppPreferences(context)
         val state = preferences.readSyncState()
+        val markdown = MarkdownStore(context).read()
+        val documentRows = markdown?.let(MarkdownDocument::parse).orEmpty()
+        val now = Instant.now()
+        val starredCourses = preferences.starredCourseNames
+        val focusTasks = starredFocusTasks(documentRows, now, starredCourses)
+        val hasFocus = focusTasks.isNotEmpty()
         val syncStuck = state.status == SyncStatus.RUNNING &&
             System.currentTimeMillis() - preferences.syncStartedAt > STUCK_SYNC_WINDOW_MILLIS
         val stale = WidgetStaleRules.isStale(
@@ -76,21 +96,21 @@ object WidgetUpdater {
             hasLoggedIn = preferences.hasLoggedIn,
             syncing = state.status == SyncStatus.RUNNING && !syncStuck,
         )
-        if (stale) {
+        // 特别关注的黄色卡片优先级高于红色未同步警告。
+        if (stale && !hasFocus) {
             updateStaleWidget(context, appWidgetId, manager, state.lastSuccessEpochMillis)
             return
         }
         val palette = ThemePalette.resolveWidget(context, preferences.widgetStyle)
         val alertColors = DeadlineAlertPalette.resolve(palette.background, preferences.deadlineAlertStyle)
-        val markdown = MarkdownStore(context).read()
-        val documentRows = markdown?.let(MarkdownDocument::parse).orEmpty()
-        val now = Instant.now()
         val isDemo = documentRows.firstOrNull { it.isHeading }?.text?.let {
             it.startsWith("课程待办") && it.contains("演示")
         } == true
         val tasks = documentRows.filter { it.checked != null }
-        val pendingTasks = visibleRows(documentRows, now, preferences.taskSortOrder).filter { it.checked != null }
-        val urgentCount = pendingTasks.count { DeadlineRules.isUrgent(it, now) }
+        val pendingTasks = visibleRows(documentRows, now, preferences.taskSortOrder, excludeCourses = starredCourses).filter { it.checked != null }
+        val urgentCount = pendingTasks.count { DeadlineRules.isUrgent(it, now) } +
+            focusTasks.count { DeadlineRules.isUrgent(it.row, now) }
+        val totalPending = pendingTasks.size + focusTasks.size
         val fontScale = preferences.widgetFontScalePercent.coerceIn(80, 200) / 100f
         val narrow = manager.getAppWidgetOptions(appWidgetId)
             .getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250) < 220
@@ -114,7 +134,7 @@ object WidgetUpdater {
         views.setTextSizeSp(R.id.widget_empty, (13f * fontScale).coerceAtMost(52f))
         views.setTextViewText(
             R.id.widget_count,
-            if (tasks.isEmpty()) "暂无任务" else "待完成 ${pendingTasks.size}",
+            if (tasks.isEmpty() && focusTasks.isEmpty()) "暂无任务" else "待完成 $totalPending",
         )
         val urgentText = "临期 · $urgentCount 项（24 小时或剩余不足 30%）"
         views.setTextViewText(R.id.widget_urgent_count, urgentText)
@@ -147,10 +167,29 @@ object WidgetUpdater {
         val empty = when {
             markdown.isNullOrBlank() -> "登录并同步后显示课程待办"
             tasks.isNotEmpty() && tasks.all { it.checked == true } -> "全部任务已完成"
-            tasks.isNotEmpty() && pendingTasks.isEmpty() -> "当前没有未截止的待办"
+            tasks.isNotEmpty() && pendingTasks.isEmpty() && focusTasks.isEmpty() -> "当前没有未截止的待办"
             else -> "当前没有待办"
         }
         views.setTextViewText(R.id.widget_empty, empty)
+        if (hasFocus) {
+            val firstTask = focusTasks.first()
+            views.setViewVisibility(R.id.widget_focus, View.VISIBLE)
+            views.setTextViewText(R.id.widget_focus_title, "特别关注 · ${firstTask.course}")
+            val nearest = firstTask.row.deadline?.let {
+                " · 最近截止 " + SimpleDateFormat("MM-dd HH:mm", Locale.CHINA).format(Date(it.toEpochMilli()))
+            }.orEmpty()
+            views.setTextViewText(
+                R.id.widget_focus_detail,
+                "${focusTasks.size} 项待办$nearest · 已置顶",
+            )
+            views.setInt(R.id.widget_focus_icon, "setColorFilter", 0xFFFFF6D8.toInt())
+        } else {
+            views.setViewVisibility(R.id.widget_focus, View.GONE)
+        }
+        if (stale) {
+            views.setTextViewText(R.id.widget_status, "超过 4 小时未同步，点按刷新")
+            views.setTextColor(R.id.widget_status, alertColors.color)
+        }
         if (preferences.widgetStyle == com.course.todo.ui.WidgetStyle.PAPER_TIMELINE) {
             views.setViewPadding(R.id.widget_content, dp(context, 14), dp(context, 12), dp(context, 14), dp(context, 12))
             views.setTextColor(R.id.widget_count, palette.accent)
@@ -180,6 +219,7 @@ object WidgetUpdater {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         views.setOnClickPendingIntent(R.id.widget_title, open)
+        if (hasFocus) views.setOnClickPendingIntent(R.id.widget_focus, open)
         views.setOnClickPendingIntent(R.id.widget_urgent_count, open)
         views.setOnClickPendingIntent(R.id.widget_settings, settings)
         views.setOnClickPendingIntent(R.id.widget_status, open)
@@ -219,19 +259,31 @@ internal fun visibleRows(
     markdown: String?,
     now: Instant = Instant.now(),
     sortOrder: TaskSortOrder = TaskSortOrder.COURSE,
+    excludeCourses: Set<String> = emptySet(),
 ): List<MarkdownRow> =
-    visibleRows(markdown?.let(MarkdownDocument::parse).orEmpty(), now, sortOrder)
+    visibleRows(markdown?.let(MarkdownDocument::parse).orEmpty(), now, sortOrder, excludeCourses)
 
 private fun visibleRows(
     rows: List<MarkdownRow>,
     now: Instant,
     sortOrder: TaskSortOrder,
+    excludeCourses: Set<String>,
 ): List<MarkdownRow> {
     val documentTitle = rows.firstOrNull { it.isHeading }?.takeIf { it.text.startsWith("课程待办") }
     val visible = DeadlineRules.filterVisible(rows, now).filter { it.isHeading || it.checked != null }
         .filterNot { it === documentTitle }
-    // 排序 + 把“分组任务 / 大作业”统一放到最后；空课程标题不会出现。
-    return TodoOrdering.build(visible, sortOrder).map { item ->
+    // 排序 + 把“分组任务 / 大作业”统一放到最后；特别关注课程从列表移到顶部黄色卡片。
+    val ordered = TodoOrdering.build(visible, sortOrder)
+        .filterNot { it is TodoOrdering.DisplayRow.Task && it.course in excludeCourses }
+    val cleaned = ordered.filterIndexed { index, item ->
+        if (item !is TodoOrdering.DisplayRow.Heading) {
+            true
+        } else {
+            ordered.drop(index + 1).takeWhile { it !is TodoOrdering.DisplayRow.Heading }
+                .any { it is TodoOrdering.DisplayRow.Task }
+        }
+    }
+    return cleaned.map { item ->
         when (item) {
             is TodoOrdering.DisplayRow.Heading -> MarkdownRow(item.text, isHeading = true)
             is TodoOrdering.DisplayRow.Task -> item.row

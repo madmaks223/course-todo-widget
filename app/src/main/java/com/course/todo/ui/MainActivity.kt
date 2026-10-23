@@ -41,6 +41,14 @@ import com.google.android.material.tabs.TabLayout
 import com.course.todo.R
 import com.course.todo.core.DeadlineRules
 import com.course.todo.core.MarkdownDocument
+import com.course.todo.core.TaskKind
+import com.course.todo.data.ManualTaskStore
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
+import android.widget.ArrayAdapter
+import android.widget.EditText
+import android.widget.Spinner
+import java.util.Calendar
 import com.course.todo.core.MarkdownRow
 import com.course.todo.core.TaskSortOrder
 import com.course.todo.core.TodoOrdering
@@ -151,6 +159,34 @@ class MainActivity : AppCompatActivity() {
         }
         if (intent.getBooleanExtra("debug_preview_stale", false)) {
             startActivity(Intent(this, WidgetStalePreviewActivity::class.java))
+        }
+        if (intent.getBooleanExtra("debug_add_manual", false)) {
+            val store = ManualTaskStore(this)
+            val courseName = intent.getStringExtra("debug_manual_course")?.trim().orEmpty()
+            val taskTitle = intent.getStringExtra("debug_manual_task")?.trim().orEmpty()
+            if (courseName.isNotBlank()) {
+                val data = runCatching { store.addCourse(courseName) }.getOrDefault(store.load())
+                val course = data.courses.lastOrNull { it.name == courseName }
+                if (course != null && taskTitle.isNotBlank()) {
+                    val hours = intent.getIntExtra("debug_manual_deadline_hours", 24).coerceIn(1, 24 * 30)
+                    runCatching {
+                        store.addTask(course.id, taskTitle, TaskKind.ASSIGNMENT, Instant.now().plusSeconds(hours * 3_600L))
+                    }
+                }
+                ManualTaskStore.rebuildMarkdown(this)
+            }
+        }
+        intent.getStringExtra("debug_star_course")?.trim()?.takeIf { it.isNotEmpty() }?.let { course ->
+            preferences.starredCourseNames = preferences.starredCourseNames + course
+            WidgetUpdater.refreshAll(this)
+        }
+        intent.getStringExtra("debug_unstar_course")?.trim()?.takeIf { it.isNotEmpty() }?.let { course ->
+            preferences.starredCourseNames = preferences.starredCourseNames - course
+            WidgetUpdater.refreshAll(this)
+        }
+        if (intent.getBooleanExtra("debug_clear_manual", false)) {
+            java.io.File(filesDir, "manual_tasks.json").delete()
+            ManualTaskStore.rebuildMarkdown(this)
         }
         if (intent.getBooleanExtra("debug_fire_alarm", false)) {
             sendBroadcast(Intent(this, SyncAlarmReceiver::class.java).setAction(SyncAlarmScheduler.ACTION))
@@ -398,9 +434,21 @@ class MainActivity : AppCompatActivity() {
             var visibleTasks = 0
             displayRows.forEach { item ->
                 when (item) {
-                    is TodoOrdering.DisplayRow.Heading -> addView(label(item.text, 17f, true).apply {
-                        setPadding(0, dp(20), 0, dp(10))
-                    })
+                    is TodoOrdering.DisplayRow.Heading -> {
+                        if (item.text == TodoOrdering.LONG_TERM_HEADING) {
+                            addView(label(item.text, 17f, true).apply {
+                                setPadding(0, dp(20), 0, dp(10))
+                            })
+                        } else {
+                            addView(row().apply {
+                                gravity = Gravity.CENTER_VERTICAL
+                                addView(label(item.text, 17f, true).apply {
+                                    setPadding(0, dp(18), 0, dp(6))
+                                }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                                addView(starButton(item.text), LinearLayout.LayoutParams(dp(44), dp(44)))
+                            })
+                        }
+                    }
                     is TodoOrdering.DisplayRow.Task -> {
                         addView(taskRowView(item.row, now, alertStyle, alertColors, showTimeline))
                         addView(divider())
@@ -687,6 +735,15 @@ class MainActivity : AppCompatActivity() {
             realtimeSwitch = null
         }
         addView(divider())
+        addView(sectionTitle("自主添加"))
+        addView(label("手动添加的课程和任务会一直保留，不受同步影响。", 12f).apply {
+            setTextColor(palette.secondary)
+            setPadding(0, dp(4), 0, dp(6))
+        })
+        addView(commandButton("添加课程", R.id.manual_add_course_button) { showAddManualCourseDialog() })
+        addView(commandButton("添加任务", R.id.manual_add_task_button) { showAddManualTaskDialog() })
+        renderManualItems()
+        addView(divider())
         addView(sectionTitle("外观"))
         addView(label("点击选项不会刷新页面，切换页面后统一应用外观改动", 11f).apply {
             setTextColor(palette.secondary)
@@ -802,6 +859,215 @@ class MainActivity : AppCompatActivity() {
             setTextColor(palette.secondary)
             setPadding(0, 0, 0, dp(8))
         })
+    }
+
+    private fun starButton(courseName: String): View {
+        val starred = courseName in preferences.starredCourseNames
+        return ImageButton(this).apply {
+            setImageResource(if (starred) R.drawable.ic_star_filled else R.drawable.ic_star_outline)
+            imageTintList = ColorStateList.valueOf(if (starred) 0xFFE0A800.toInt() else palette.secondary)
+            setBackgroundColor(0x00000000)
+            contentDescription = if (starred) "取消特别关注 $courseName" else "特别关注 $courseName"
+            setPadding(dp(10), dp(10), dp(10), dp(10))
+            setOnClickListener {
+                val starredNames = preferences.starredCourseNames.toMutableSet()
+                val nowStarred = if (!starredNames.add(courseName)) {
+                    starredNames.remove(courseName)
+                    false
+                } else {
+                    true
+                }
+                preferences.starredCourseNames = starredNames
+                WidgetUpdater.refreshAll(this@MainActivity)
+                toast(if (nowStarred) "已特别关注：$courseName" else "已取消关注：$courseName")
+            }
+        }
+    }
+
+    /** 设置页里的手动课程/任务列表。 */
+    private fun LinearLayout.renderManualItems() {
+        val data = ManualTaskStore(this@MainActivity).load()
+        if (data.courses.isEmpty() && data.tasks.isEmpty()) {
+            addView(label("还没有手动添加的内容", 12f).apply {
+                setTextColor(palette.secondary)
+                setPadding(0, dp(4), 0, dp(8))
+            })
+            return
+        }
+        data.courses.forEach { course ->
+            addView(row().apply {
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(10), 0, 0)
+                addView(label(course.name, 15f, true), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+                addView(deleteTextView("删除课程") {
+                    ManualTaskStore(this@MainActivity).deleteCourse(course.id)
+                    ManualTaskStore.rebuildMarkdown(this@MainActivity)
+                    refreshAfterManualChange()
+                })
+            })
+            data.tasks.filter { it.courseId == course.id }.forEach { task ->
+                addView(row().apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                    addView(
+                        label("· ${task.title} · ${manualKindLabel(task.kind)} · ${manualDeadlineLabel(task.deadlineEpochMillis)}", 12f),
+                        LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f),
+                    )
+                    addView(deleteTextView("删除") {
+                        ManualTaskStore(this@MainActivity).deleteTask(task.id)
+                        ManualTaskStore.rebuildMarkdown(this@MainActivity)
+                        refreshAfterManualChange()
+                    })
+                })
+            }
+        }
+    }
+
+    /** 手动任务变更会直接改写 Markdown，清掉读缓存后再重绘。 */
+    private fun refreshAfterManualChange() {
+        cachedDocument = null
+        render()
+    }
+
+    private fun deleteTextView(text: String, onClick: () -> Unit): TextView = label(text, 12f).apply {
+        setTextColor(0xFFB3261E.toInt())
+        setPadding(dp(10), dp(8), 0, dp(8))
+        setOnClickListener { onClick() }
+    }
+
+    private fun manualKindLabel(kind: TaskKind): String = when (kind) {
+        TaskKind.ASSIGNMENT -> "作业"
+        TaskKind.EXAM -> "考试"
+        TaskKind.GROUP_TASK -> "分组任务"
+    }
+
+    private fun manualDeadlineLabel(epochMillis: Long?): String =
+        if (epochMillis == null) {
+            "无截止时间"
+        } else {
+            SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.SIMPLIFIED_CHINESE).format(Date(epochMillis))
+        }
+
+    private fun showAddManualCourseDialog() {
+        val input = EditText(this).apply {
+            hint = "课程名称，例如：高等数学"
+            setSingleLine(true)
+        }
+        AlertDialog.Builder(this)
+            .setTitle("添加课程")
+            .setView(input)
+            .setNegativeButton("取消", null)
+            .setPositiveButton("添加") { _, _ ->
+                val name = input.text.toString().trim()
+                if (name.isBlank()) {
+                    toast("请输入课程名称")
+                    return@setPositiveButton
+                }
+                runCatching { ManualTaskStore(this).addCourse(name) }
+                    .onFailure { toast(it.message ?: "添加失败") }
+                ManualTaskStore.rebuildMarkdown(this)
+                refreshAfterManualChange()
+            }
+            .show()
+    }
+
+    private fun showAddManualTaskDialog() {
+        val store = ManualTaskStore(this)
+        val data = store.load()
+        if (data.courses.isEmpty()) {
+            toast("请先添加课程")
+            return
+        }
+        val courses = data.courses
+        val container = column().apply { setPadding(dp(20), dp(8), dp(20), dp(8)) }
+        val courseSpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(
+                this@MainActivity,
+                android.R.layout.simple_spinner_item,
+                courses.map { it.name },
+            ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        }
+        val titleInput = EditText(this).apply {
+            hint = "任务名称，例如：第一章作业"
+            setSingleLine(true)
+        }
+        val kindSpinner = Spinner(this).apply {
+            adapter = ArrayAdapter(
+                this@MainActivity,
+                android.R.layout.simple_spinner_item,
+                listOf("作业", "考试"),
+            ).also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
+        }
+        var deadlineMillis: Long? = null
+        val deadlineText = label("选择截止时间", 13f).apply {
+            setTextColor(palette.accent)
+            setPadding(0, dp(10), 0, dp(10))
+            setOnClickListener {
+                pickManualDeadline(deadlineMillis ?: (System.currentTimeMillis() + 24 * 3_600_000L)) { picked ->
+                    deadlineMillis = picked
+                    text = "截止：${manualDeadlineLabel(picked)}"
+                }
+            }
+        }
+        container.addView(label("课程", 13f).apply { setTextColor(palette.secondary) })
+        container.addView(courseSpinner)
+        container.addView(label("任务名称", 13f).apply { setTextColor(palette.secondary); setPadding(0, dp(10), 0, 0) })
+        container.addView(titleInput)
+        container.addView(label("类型", 13f).apply { setTextColor(palette.secondary); setPadding(0, dp(10), 0, 0) })
+        container.addView(kindSpinner)
+        container.addView(deadlineText)
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("添加任务")
+            .setView(container)
+            .setNegativeButton("取消", null)
+            .setPositiveButton("添加", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val title = titleInput.text.toString().trim()
+                if (title.isBlank()) {
+                    toast("请输入任务名称")
+                    return@setOnClickListener
+                }
+                val deadline = deadlineMillis
+                if (deadline == null) {
+                    toast("请选择截止时间")
+                    return@setOnClickListener
+                }
+                val course = courses.getOrNull(courseSpinner.selectedItemPosition) ?: return@setOnClickListener
+                val kind = if (kindSpinner.selectedItemPosition == 1) TaskKind.EXAM else TaskKind.ASSIGNMENT
+                runCatching { store.addTask(course.id, title, kind, Instant.ofEpochMilli(deadline)) }
+                    .onFailure { toast(it.message ?: "添加失败") }
+                ManualTaskStore.rebuildMarkdown(this@MainActivity)
+                dialog.dismiss()
+                refreshAfterManualChange()
+            }
+        }
+        dialog.show()
+    }
+
+    private fun pickManualDeadline(initialMillis: Long, onPicked: (Long) -> Unit) {
+        val calendar = Calendar.getInstance().apply { timeInMillis = initialMillis }
+        DatePickerDialog(
+            this,
+            { _, year, month, day ->
+                calendar.set(year, month, day)
+                TimePickerDialog(
+                    this,
+                    { _, hour, minute ->
+                        calendar.set(Calendar.HOUR_OF_DAY, hour)
+                        calendar.set(Calendar.MINUTE, minute)
+                        onPicked(calendar.timeInMillis)
+                    },
+                    calendar.get(Calendar.HOUR_OF_DAY),
+                    calendar.get(Calendar.MINUTE),
+                    true,
+                ).show()
+            },
+            calendar.get(Calendar.YEAR),
+            calendar.get(Calendar.MONTH),
+            calendar.get(Calendar.DAY_OF_MONTH),
+        ).show()
     }
 
     private fun showLicensesDialog() {
@@ -1072,7 +1338,7 @@ class MainActivity : AppCompatActivity() {
         private val RENDER_KEYS = setOf(
             "demo_mode", "has_logged_in", "last_account",
             "sync_status", "sync_message", "last_success", "source_generation",
-            "sync_started_at", "realtime_sync", "auto_sync",
+            "sync_started_at", "realtime_sync", "auto_sync", "starred_courses",
         )
         private val DOCUMENT_KEYS = setOf("sync_status", "sync_message", "last_success", "source_generation")
     }

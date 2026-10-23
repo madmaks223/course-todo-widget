@@ -80,4 +80,18 @@ class WidgetUpdaterTest {
         )
         assertEquals(listOf("作业：一小时后", "作业：明天", "作业：三天后"), rows.map { it.text })
     }
+
+    @Test fun starredCoursesAreExcludedFromWidgetRows() {
+        val now = Instant.parse("2026-10-20T04:00:00Z")
+        val rows = visibleRows(
+            """
+            # 课程待办
+            ## 高等数学
+            - [ ] 作业：数学作业 | 未提交 | 截止：2026-10-23 12:00（北京时间） <!-- xxt-deadline:2026-10-23T04:00:00Z -->
+            ## 大学英语
+            - [ ] 作业：英语作业 | 未提交 | 截止：2026-10-22 12:00（北京时间） <!-- xxt-deadline:2026-10-22T04:00:00Z -->
+            """.trimIndent(), now, TaskSortOrder.COURSE, excludeCourses = setOf("高等数学"),
+        )
+        assertEquals(listOf("大学英语", "作业：英语作业"), rows.map { it.text })
+    }
 }

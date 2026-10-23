@@ -7,6 +7,7 @@ import com.course.todo.core.MarkdownDocument
 import com.course.todo.core.RiskControlRequired
 import com.course.todo.core.SampleData
 import com.course.todo.core.AuthenticationRequired
+import com.course.todo.data.ManualTaskStore
 import com.course.todo.data.PlatformRepository
 import com.course.todo.storage.AppPreferences
 import com.course.todo.storage.MarkdownStore
@@ -81,16 +82,18 @@ object SyncRunner {
                 }
                 coroutineContext.ensureActive()
                 if (!isDemo) snapshotStore.write(snapshot)
+                // 手动添加的课程/任务只在展示与 Markdown 时合并，快照仍保存同步数据，避免重复。
+                val displaySnapshot = ManualTaskStore(appContext).mergeInto(snapshot)
                 val store = MarkdownStore(appContext)
                 val committed = prefs.commitIfCurrent(generation) {
-                    store.write(MarkdownDocument.render(snapshot))
+                    store.write(MarkdownDocument.render(displaySnapshot))
                 }
                 if (!committed) {
                     return@withContext Outcome.Stale
                 }
                 if (!isDemo && fullSync) prefs.lastFullSyncAt = System.currentTimeMillis()
                 val warning = prefs.exportUri?.let { address ->
-                    runCatching { store.exportTo(Uri.parse(address)) }.exceptionOrNull()
+                    runCatching { store.write(MarkdownDocument.render(displaySnapshot)); store.exportTo(Uri.parse(address)) }.exceptionOrNull()
                         ?.let { "，外部 Markdown 写入失败，请重新选择文档" }
                 } ?: ""
                 prefs.commitIfCurrent(generation) {

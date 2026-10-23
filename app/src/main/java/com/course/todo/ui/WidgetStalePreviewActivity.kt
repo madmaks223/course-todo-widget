@@ -3,6 +3,7 @@ package com.course.todo.ui
 import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageView
@@ -30,6 +31,9 @@ class WidgetStalePreviewActivity : AppCompatActivity() {
             )
         }
         column.addView(headerPreview(density))
+        column.addView(focusWidgetPreview(density), LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, (200 * density).toInt(),
+        ).apply { topMargin = (12 * density).toInt() })
         column.addView(
             layoutInflater.inflate(R.layout.widget_stale, column, false),
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, (244 * density).toInt()).apply {
@@ -40,6 +44,20 @@ class WidgetStalePreviewActivity : AppCompatActivity() {
         setContentView(root)
         // 与真实小组件一致：警告页刷新图标用浅色 tint。
         findViewById<ImageView>(R.id.widget_stale_refresh_icon)?.setColorFilter(0xFFFFD9D5.toInt())
+    }
+
+    /** 正常小组件 + 黄色特别关注卡片的预览。 */
+    private fun focusWidgetPreview(density: Float): View {
+        val widget = layoutInflater.inflate(R.layout.widget_todo, null, false)
+        val focus = widget.findViewById<LinearLayout>(R.id.widget_focus)
+        focus.visibility = View.VISIBLE
+        focus.findViewById<TextView>(R.id.widget_focus_title).text = "特别关注 · 测试课程"
+        focus.findViewById<TextView>(R.id.widget_focus_detail).text = "2 项待办 · 最近截止 10-25 23:59 · 已置顶"
+        focus.findViewById<ImageView>(R.id.widget_focus_icon)?.setColorFilter(0xFFFFF6D8.toInt())
+        widget.findViewById<TextView>(R.id.widget_title)?.text = "课程待办"
+        widget.findViewById<ImageView>(R.id.widget_refresh)?.setColorFilter(0xFFB36332.toInt())
+        widget.findViewById<ImageView>(R.id.widget_settings)?.setColorFilter(0xFF887668.toInt())
+        return widget
     }
 
     /** 正常小组件头部的图标预览。 */

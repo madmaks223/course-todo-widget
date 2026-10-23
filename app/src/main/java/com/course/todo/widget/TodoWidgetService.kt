@@ -32,7 +32,12 @@ class TodoWidgetService : RemoteViewsService() {
         private fun load() {
             preferences = AppPreferences(context)
             renderNow = Instant.now()
-            val baseRows = visibleRows(MarkdownStore(context).read(), renderNow, preferences.taskSortOrder)
+            val baseRows = visibleRows(
+                MarkdownStore(context).read(),
+                renderNow,
+                preferences.taskSortOrder,
+                excludeCourses = preferences.starredCourseNames,
+            )
             rows = if (preferences.demoMode) {
                 listOf(MarkdownRow(text = "演示数据 · 登录学习通后显示真实待办", isHeading = true)) + baseRows
             } else {

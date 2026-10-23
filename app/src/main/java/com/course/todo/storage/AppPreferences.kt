@@ -6,6 +6,7 @@ import com.course.todo.core.TaskSortOrder
 import com.course.todo.ui.DeadlineAlertStyle
 import com.course.todo.ui.ThemeStyle
 import com.course.todo.ui.WidgetStyle
+import org.json.JSONArray
 import java.io.File
 
 enum class SyncStatus { IDLE, RUNNING, SUCCESS, ERROR, AUTH_REQUIRED }
@@ -136,6 +137,14 @@ class AppPreferences(context: Context) {
     var exportUri: String?
         get() = prefs.getString("export_uri", null)
         set(value) = edit { putString("export_uri", value) }
+
+    /** 特别关注的课程名集合：小组件会把它们的任务置顶为黄色特别关注卡片。 */
+    var starredCourseNames: Set<String>
+        get() = runCatching {
+            val array = JSONArray(prefs.getString("starred_courses", "[]") ?: "[]")
+            (0 until array.length()).map { array.optString(it) }.filter { it.isNotBlank() }.toSet()
+        }.getOrDefault(emptySet())
+        set(value) = edit { putString("starred_courses", JSONArray(value.toList()).toString()) }
 
     /** 最近一次同步开始时间（毫秒），用于识别进程被杀后残留的 RUNNING 状态。 */
     var syncStartedAt: Long
