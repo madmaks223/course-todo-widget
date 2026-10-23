@@ -745,7 +745,7 @@ class MainActivity : AppCompatActivity() {
         renderManualItems()
         addView(divider())
         addView(sectionTitle("外观"))
-        addView(label("点击选项不会刷新页面，切换页面后统一应用外观改动", 11f).apply {
+        addView(label("主题点击后立即生效；其它外观选项在切换页面后应用", 11f).apply {
             setTextColor(palette.secondary)
             setPadding(0, dp(2), 0, dp(2))
         })
@@ -754,13 +754,11 @@ class MainActivity : AppCompatActivity() {
             val theme = ThemeStyle.entries.getOrNull(index) ?: ThemeStyle.SYSTEM
             if (preferences.theme != theme) {
                 preferences.theme = theme
-                appearanceDirty = true
+                // 主题需要立即生效：直接重绘当前页面（滚动位置会保留）。
+                appearanceDirty = false
+                render()
             }
         }
-        addView(label("切换页面后应用新主题", 11f).apply {
-            setTextColor(palette.secondary)
-            setPadding(0, dp(4), 0, 0)
-        })
         addOptionGroup("截止警示方案", listOf("柔和", "红边卡片", "时间线", "进度条"), preferences.deadlineAlertStyle.ordinal, 2) { index ->
             val style = DeadlineAlertStyle.entries.getOrNull(index) ?: DeadlineAlertStyle.SOFT
             if (preferences.deadlineAlertStyle != style) {
